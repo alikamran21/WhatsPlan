@@ -1,15 +1,13 @@
 // @ts-nocheck
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { classifyMessages } from "@/lib/classify";
 import {
   MessageSquare, Phone, Kanban, Award, Settings as SettingsIcon,
   Search, Plus, Send, Paperclip, Smile, Mic, MoreVertical, Lock,
   Palette, User, LogOut, Flame, Trophy, Star, ShieldCheck, Sparkles,
   Calendar as CalendarIcon, ListChecks, StickyNote, Table as TableIcon,
   GitBranch, Columns3, Pencil, Trash2, Check, X, ChevronRight, ChevronDown,
-  Mail, KeyRound, ArrowRight, Heart, Loader2, Zap, AlertTriangle, Info,
-  ClipboardPaste, RotateCcw, ExternalLink,
+  Mail, KeyRound, ArrowRight,
 } from "lucide-react";
 
 /* ====================================================================== */
@@ -69,24 +67,24 @@ const THEMES = {
     blurb: "Bold borders, hard shadows.",
     bg: "wa-bg-brutal",
     swatch: ["#25d366", "#0a0a0a", "#fffbe8", "#128c7e"],
-    sidebar: "bg-[#25d366] border-r-[4px] border-black",
-    topbar: "bg-white border-b-[4px] border-black",
-    panel: "bg-white border-[4px] border-black rounded-lg shadow-[6px_6px_0_0_#000]",
-    panelSoft: "bg-[#fffbe8] border-[3px] border-black rounded-lg shadow-[4px_4px_0_0_#000]",
+    sidebar: "bg-[#25d366] border-r-[3px] border-black",
+    topbar: "bg-white border-b-[3px] border-black",
+    panel: "brutal",
+    panelSoft: "bg-white border-2 border-black rounded-md",
     accent: "bg-black text-[#25d366]",
-    chipActive: "bg-black text-[#25d366] border-[3px] border-black shadow-[4px_4px_0_0_#000]",
-    chipIdle: "bg-white text-black border-[3px] border-black shadow-[4px_4px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] transition-all",
-    bubbleMe: "bg-[#25d366] text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]",
-    bubbleThem: "bg-white text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]",
-    input: "bg-white border-[3px] border-black text-black placeholder:text-black/50 rounded-md font-bold focus:shadow-[4px_4px_0_0_#000] outline-none transition-shadow",
-    btn: "bg-[#25d366] text-black border-[3px] border-black hover:bg-[#128c7e] hover:text-white shadow-[4px_4px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] transition-all font-bold",
-    btnGhost: "bg-white text-black border-[3px] border-black shadow-[4px_4px_0_0_#000] hover:bg-[#d9fdd3] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] transition-all font-bold",
-    column: "bg-[#fffbe8] border-[4px] border-black rounded-lg shadow-[6px_6px_0_0_#000]",
-    card: "bg-[#d9fdd3] border-[3px] border-black rounded-md shadow-[4px_4px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] transition-all",
-    text: "text-black font-semibold",
-    muted: "text-black/70 font-medium",
-    badge: "bg-white border-[3px] border-black shadow-[4px_4px_0_0_#000] font-bold",
-    avatarRing: "ring-[3px] ring-black",
+    chipActive: "bg-black text-[#25d366] border-2 border-black shadow-[3px_3px_0_0_#000]",
+    chipIdle: "bg-white text-black border-2 border-black hover:bg-[#d9fdd3]",
+    bubbleMe: "bg-[#25d366] text-black border-2 border-black shadow-[3px_3px_0_0_#000]",
+    bubbleThem: "bg-white text-black border-2 border-black",
+    input: "bg-white border-2 border-black text-black placeholder:text-black/50 rounded-md",
+    btn: "bg-black text-[#25d366] border-2 border-black hover:bg-[#128c7e] hover:text-white shadow-[4px_4px_0_0_#000]",
+    btnGhost: "bg-white text-black border-2 border-black hover:bg-[#d9fdd3]",
+    column: "brutal",
+    card: "bg-[#d9fdd3] border-2 border-black rounded-md shadow-[3px_3px_0_0_#000]",
+    text: "text-black",
+    muted: "text-black/60",
+    badge: "bg-white border-2 border-black shadow-[3px_3px_0_0_#000]",
+    avatarRing: "ring-2 ring-black",
   },
   skeuo: {
     name: "Skeuomorphic",
@@ -235,7 +233,7 @@ function useLocal(key, initial) {
 }
 
 /* ====================================================================== */
-/* WhatsPlan logo                                                          */
+/* WhatsApp logo                                                           */
 /* ====================================================================== */
 function WhatsPlanLogo({ size = 64 }) {
   return (
@@ -505,8 +503,6 @@ function useGamification() {
   const [themesTried, setThemesTried] = useLocal("wp_themes_tried", []);
   const [streak, setStreak] = useLocal("wp_streak", { count: 0, last: null });
   const [completed, setCompleted] = useLocal("wp_completed", 0);
-  const [petEnabled, setPetEnabled] = useLocal("wp_pet_enabled", true);
-  const [cheering, setCheering] = useState(false);
 
   // streak tick on mount (after hydrate)
   useEffect(() => {
@@ -539,15 +535,7 @@ function useGamification() {
   }, [streak]);
   useEffect(() => { if (completed >= 10) grant("ten_cards"); }, [completed]);
 
-  useEffect(() => {
-    if (completed > 0) {
-      setCheering(true);
-      const t = setTimeout(() => setCheering(false), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [completed]);
-
-  return { earned, grant, streak, tryTheme, themesTried, completed, setCompleted, petEnabled, setPetEnabled, cheering };
+  return { earned, grant, streak, tryTheme, themesTried, completed, setCompleted };
 }
 
 /* ====================================================================== */
@@ -597,7 +585,7 @@ function BoardsView({ T, boards, setBoards, gam }) {
   function remove(id) { setBoards(boards.filter((b) => b.id !== id)); if (openId === id) setOpenId(null); }
 
   if (open) {
-    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} allBoards={boards} />;
+    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} />;
   }
 
   return (
@@ -685,10 +673,10 @@ function BoardCreator({ T, onCancel, onCreate }) {
   );
 }
 
-function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
+function BoardDetail({ T, board, onBack, onChange, gam }) {
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+    <div className="p-6 max-w-7xl mx-auto w-full">
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm`}>← Back</button>
           <input
@@ -705,7 +693,7 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
       {board.type === "kanban"    && <KanbanView    T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "table"     && <TableView     T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "roadmap"   && <RoadmapView   T={T} board={board} onChange={onChange} gam={gam} />}
-      {board.type === "calendar"  && <CalendarView  T={T} board={board} onChange={onChange} allBoards={allBoards} />}
+      {board.type === "calendar"  && <CalendarView  T={T} board={board} onChange={onChange} />}
       {board.type === "checklist" && <ChecklistView T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "notes"     && <NotesView     T={T} board={board} onChange={onChange} />}
     </div>
@@ -714,20 +702,16 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
 
 /* ---- Kanban ---- */
 function KanbanView({ T, board, onChange, gam }) {
-  function addCard(colId, title, dueDate) {
+  function addCard(colId, title) {
     if (!title) return;
     gam.grant("first_card");
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false, dueDate: dueDate || null }] } : c) });
+      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false }] } : c) });
   }
   function toggle(colId, cardId) {
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
       ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, done: !k.done } : k) } : c) });
     gam.setCompleted((n) => n + 1);
-  }
-  function setCardDate(colId, cardId, dueDate) {
-    onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, dueDate: dueDate || null } : k) } : c) });
   }
   function addColumn() {
     onChange({ ...board, columns: [...board.columns, { id: crypto.randomUUID(), name: "New column", cards: [] }] });
@@ -741,7 +725,7 @@ function KanbanView({ T, board, onChange, gam }) {
   return (
     <div className="flex gap-4 overflow-x-auto thin-scroll pb-4">
       {board.columns.map((col) => (
-        <div key={col.id} className={`${T.column} p-3 min-w-[260px] sm:min-w-[280px] w-[280px]`}>
+        <div key={col.id} className={`${T.column} p-3 min-w-[280px] w-[280px]`}>
           <div className="flex items-center justify-between mb-2">
             <input value={col.name} onChange={(e) => renameColumn(col.id, e.target.value)}
               className={`bg-transparent font-semibold ${T.text} outline-none`} />
@@ -751,27 +735,15 @@ function KanbanView({ T, board, onChange, gam }) {
           </div>
           <div className="space-y-2">
             {col.cards.map((c) => (
-              <div key={c.id} className={`${T.card} p-3 text-sm ${T.text}`}>
-                <div className="flex items-start gap-2">
-                  <button onClick={() => toggle(col.id, c.id)} className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 ${c.done ? "bg-[#25d366] border-[#25d366]" : "border-current opacity-40"} flex items-center justify-center`}>
-                    {c.done && <Check className="w-3 h-3 text-white" />}
-                  </button>
-                  <span className={`flex-1 ${c.done ? "line-through opacity-60" : ""}`}>{c.title}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <CalendarIcon className="w-3 h-3 opacity-50" />
-                  <input
-                    type="date"
-                    value={c.dueDate || ""}
-                    onChange={(e) => setCardDate(col.id, c.id, e.target.value)}
-                    className={`bg-transparent text-xs ${T.muted} outline-none cursor-pointer`}
-                  />
-                  {c.dueDate && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#25d366]/20 text-[#128c7e] font-medium">{c.dueDate}</span>}
-                </div>
+              <div key={c.id} className={`${T.card} p-3 text-sm ${T.text} flex items-start gap-2`}>
+                <button onClick={() => toggle(col.id, c.id)} className={`mt-0.5 w-4 h-4 rounded border ${c.done ? "bg-[#25d366] border-[#25d366]" : "border-current opacity-40"} flex items-center justify-center`}>
+                  {c.done && <Check className="w-3 h-3 text-white" />}
+                </button>
+                <span className={c.done ? "line-through opacity-60" : ""}>{c.title}</span>
               </div>
             ))}
           </div>
-          <AddInlineWithDate T={T} placeholder="+ Add a card" onAdd={(title, date) => addCard(col.id, title, date)} />
+          <AddInline T={T} placeholder="+ Add a card" onAdd={(v) => addCard(col.id, v)} />
         </div>
       ))}
       <button onClick={addColumn} className={`${T.chipIdle} min-w-[160px] rounded-xl p-3 text-sm font-medium self-start`}>
@@ -791,30 +763,6 @@ function AddInline({ T, placeholder, onAdd }) {
         placeholder={placeholder}
         className={`${T.input} w-full text-sm rounded-lg px-2 py-1.5`}
       />
-    </div>
-  );
-}
-
-function AddInlineWithDate({ T, placeholder, onAdd }) {
-  const [v, setV] = useState("");
-  const [date, setDate] = useState("");
-  const [showDate, setShowDate] = useState(false);
-  return (
-    <div className="mt-2 space-y-1">
-      <input
-        value={v} onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { onAdd(v, date); setV(""); setDate(""); setShowDate(false); } }}
-        placeholder={placeholder}
-        className={`${T.input} w-full text-sm rounded-lg px-2 py-1.5`}
-      />
-      {v && (
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowDate(!showDate)} className={`${T.muted} text-xs flex items-center gap-1 hover:opacity-80`}>
-            <CalendarIcon className="w-3 h-3" /> {showDate ? "hide date" : "add due date"}
-          </button>
-          {showDate && <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`bg-transparent text-xs ${T.muted} outline-none`} />}
-        </div>
-      )}
     </div>
   );
 }
@@ -911,12 +859,9 @@ function RoadmapView({ T, board, onChange, gam }) {
   );
 }
 
-/* ---- Calendar (cross-board aggregation) ---- */
-function CalendarView({ T, board, onChange, allBoards }) {
+/* ---- Calendar ---- */
+function CalendarView({ T, board, onChange }) {
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
-  const [addingToDay, setAddingToDay] = useState(null);
-  const [newEventTitle, setNewEventTitle] = useState("");
-
   const first = new Date(cursor.y, cursor.m, 1);
   const startDay = first.getDay();
   const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
@@ -925,44 +870,15 @@ function CalendarView({ T, board, onChange, allBoards }) {
     return day >= 1 && day <= daysInMonth ? day : null;
   });
   const monthName = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-
-  // Aggregate due-dated items from ALL boards
-  const crossBoardItems = useMemo(() => {
-    const items = [];
-    (allBoards || []).forEach((b) => {
-      if (b.id === board.id) return; // skip self
-      // kanban cards
-      if (b.columns) b.columns.forEach((col) => col.cards?.forEach((card) => {
-        if (card.dueDate) items.push({ id: card.id, date: card.dueDate, title: card.title, source: b.name, type: "task" });
-      }));
-      // checklist items
-      if (b.items) b.items.forEach((it) => {
-        if (it.dueDate) items.push({ id: it.id, date: it.dueDate, title: it.title, source: b.name, type: "task" });
-      });
-      // roadmap items
-      if (b.lanes) b.lanes.forEach((lane) => lane.items?.forEach((it) => {
-        if (it.dueDate) items.push({ id: it.id, date: it.dueDate, title: it.title, source: b.name, type: "task" });
-      }));
-      // other calendar events
-      if (b.events && b.type === "calendar") b.events.forEach((ev) => {
-        items.push({ id: ev.id, date: ev.date, title: ev.title, source: b.name, type: "event" });
-      });
-    });
-    return items;
-  }, [allBoards, board.id]);
-
   function eventsOn(d) {
     const iso = new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10);
-    const own = board.events.filter((e) => e.date === iso).map(e => ({ ...e, source: null, type: "event" }));
-    const cross = crossBoardItems.filter((e) => e.date === iso);
-    return [...own, ...cross];
+    return board.events.filter((e) => e.date === iso);
   }
-  function saveEvent() {
-    if (!newEventTitle || !addingToDay) return;
-    const iso = new Date(cursor.y, cursor.m, addingToDay).toISOString().slice(0, 10);
-    onChange({ ...board, events: [...board.events, { id: crypto.randomUUID(), date: iso, title: newEventTitle }] });
-    setAddingToDay(null);
-    setNewEventTitle("");
+  function addEvent(d) {
+    const title = prompt("Event title?");
+    if (!title) return;
+    const iso = new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10);
+    onChange({ ...board, events: [...board.events, { id: crypto.randomUUID(), date: iso, title }] });
   }
   function go(delta) {
     let m = cursor.m + delta, y = cursor.y;
@@ -970,54 +886,24 @@ function CalendarView({ T, board, onChange, allBoards }) {
     setCursor({ y, m });
   }
   return (
-    <div className={`${T.panel} p-3 sm:p-5`}>
+    <div className={`${T.panel} p-5`}>
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => go(-1)} className={`${T.btnGhost} px-3 py-1 rounded-lg`}>‹</button>
         <div className={`font-semibold ${T.text}`}>{monthName}</div>
         <button onClick={() => go(1)} className={`${T.btnGhost} px-3 py-1 rounded-lg`}>›</button>
       </div>
-      {crossBoardItems.length > 0 && (
-        <div className={`${T.panelSoft} px-3 py-2 mb-3 rounded-lg text-xs ${T.muted} flex items-center gap-2`}>
-          <Zap className="w-3 h-3" /> Showing {crossBoardItems.length} due-dated items from other boards
-        </div>
-      )}
       <div className={`grid grid-cols-7 gap-1 text-xs font-medium mb-1 ${T.muted}`}>
-        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => <div key={i} className="text-center py-1 hidden sm:block">{d}</div>)}
-        {["S","M","T","W","T","F","S"].map((d, i) => <div key={i} className="text-center py-1 sm:hidden">{d}</div>)}
+        {["S","M","T","W","T","F","S"].map((d, i) => <div key={i} className="text-center py-1">{d}</div>)}
       </div>
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
+      <div className="grid grid-cols-7 gap-1">
         {cells.map((d, i) => (
-          <div key={i} className={`${d ? T.panelSoft : ""} min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 flex flex-col gap-1 text-xs ${T.text} relative group`}>
+          <div key={i} className={`${d ? T.panelSoft : ""} min-h-[72px] p-1 text-xs ${T.text}`}>
             {d && (
               <>
-                <div className="flex justify-between items-start">
-                  <span className="font-semibold opacity-70 group-hover:opacity-100">{d}</span>
-                  <button onClick={() => setAddingToDay(d)} className="opacity-0 group-hover:opacity-100 bg-[#25d366] text-white rounded-full p-0.5 shadow-sm transition">
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto thin-scroll space-y-1 mt-1">
-                  {eventsOn(d).map((e) => (
-                    <div key={e.id} className={`${
-                      e.source ? "bg-[#128c7e]/20 text-[#128c7e] border border-[#128c7e]/30" : T.accent
-                    } px-1.5 py-1 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs truncate shadow-sm`}
-                      title={e.source ? `From: ${e.source}` : "This calendar"}
-                    >{e.source ? "📋 " : ""}{e.title}</div>
-                  ))}
-                  {addingToDay === d && (
-                    <div className="mt-1">
-                      <input
-                        autoFocus
-                        value={newEventTitle}
-                        onChange={(e) => setNewEventTitle(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") saveEvent(); if (e.key === "Escape") setAddingToDay(null); }}
-                        onBlur={saveEvent}
-                        placeholder="New event"
-                        className={`${T.input} w-full text-[10px] sm:text-xs rounded px-1 py-1`}
-                      />
-                    </div>
-                  )}
-                </div>
+                <button onClick={() => addEvent(d)} className="w-full text-left font-semibold opacity-70 hover:opacity-100">{d}</button>
+                {eventsOn(d).map((e) => (
+                  <div key={e.id} className={`${T.accent} px-1.5 py-0.5 rounded mt-1 truncate`}>{e.title}</div>
+                ))}
               </>
             )}
           </div>
@@ -1095,202 +981,31 @@ function NotesView({ T, board, onChange }) {
 }
 
 /* ====================================================================== */
-/* Chats — Real AI Classification                                           */
+/* Chats / Calls placeholder views                                          */
 /* ====================================================================== */
-const SAMPLE_CHAT = `Ali: Let's schedule the sprint review for next Friday at 3pm
-Sarah: Can someone update the landing page copy by tomorrow?
-Ahmed: Great work on the demo everyone! 🎉
-Fatima: We need to fix the login bug before the release, it's urgent`;
-
-const TYPE_META = {
-  task:  { icon: ListChecks,    color: "bg-blue-500/15 text-blue-700 border-blue-300",   label: "Task" },
-  event: { icon: CalendarIcon,  color: "bg-purple-500/15 text-purple-700 border-purple-300", label: "Event" },
-  info:  { icon: Info,          color: "bg-gray-500/15 text-gray-600 border-gray-300",   label: "Info" },
-};
-const PRIO_COLORS = { high: "bg-red-500", medium: "bg-yellow-500", low: "bg-green-500" };
-
-function ChatsView({ T, boards, setBoards, gam }) {
-  const [chatText, setChatText] = useState("");
-  const [classifying, setClassifying] = useState(false);
-  const [results, setResults] = useState(null); // { error, items }
-  const [routed, setRouted] = useState(false);
-
-  async function handleClassify() {
-    if (!chatText.trim()) return;
-    setClassifying(true);
-    setResults(null);
-    setRouted(false);
-    try {
-      const res = await classifyMessages({ data: { text: chatText.trim() } });
-      setResults(res);
-    } catch (err) {
-      setResults({ error: `Request failed: ${err?.message || String(err)}`, items: [] });
-    } finally {
-      setClassifying(false);
-    }
-  }
-
-  function handleRouteToBoards() {
-    if (!results?.items?.length) return;
-    const tasks = results.items.filter(i => i.type === "task");
-    const events = results.items.filter(i => i.type === "event");
-
-    let updatedBoards = [...boards];
-
-    if (tasks.length > 0) {
-      let taskBoard = updatedBoards.find(b => b.type === "kanban" && b.name === "From Chat");
-      if (!taskBoard) {
-        taskBoard = newBoard("kanban", "From Chat");
-        updatedBoards = [taskBoard, ...updatedBoards];
-      }
-      const todoCol = taskBoard.columns[0];
-      const newCards = tasks.map(t => ({ id: crypto.randomUUID(), title: t.title, done: false, dueDate: t.dueDate || null }));
-      taskBoard = {
-        ...taskBoard,
-        columns: taskBoard.columns.map(c => c.id === todoCol.id ? { ...c, cards: [...c.cards, ...newCards] } : c),
-      };
-      updatedBoards = updatedBoards.map(b => b.id === taskBoard.id ? taskBoard : b);
-      gam.grant("first_board");
-      gam.grant("first_card");
-    }
-
-    if (events.length > 0) {
-      let calBoard = updatedBoards.find(b => b.type === "calendar" && b.name === "From Chat");
-      if (!calBoard) {
-        calBoard = newBoard("calendar", "From Chat");
-        updatedBoards = [calBoard, ...updatedBoards];
-      }
-      const newEvents = events.map(e => ({ id: crypto.randomUUID(), date: e.dueDate || new Date().toISOString().slice(0, 10), title: e.title }));
-      calBoard = { ...calBoard, events: [...calBoard.events, ...newEvents] };
-      updatedBoards = updatedBoards.map(b => b.id === calBoard.id ? calBoard : b);
-      gam.grant("first_board");
-    }
-
-    setBoards(updatedBoards);
-    setRouted(true);
-  }
-
+function ChatsView({ T }) {
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto w-full">
-      <div className="mb-6">
-        <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text} flex items-center gap-2`}>
-          <Zap className="w-6 h-6" /> AI Chat Classifier
-        </h2>
-        <p className={`${T.muted} text-sm mt-1`}>
-          Paste real chat messages below. The AI classifies each line as a task, event, or info — then routes actionable items directly into your boards.
-        </p>
-      </div>
-
-      {/* Input area */}
-      <div className={`${T.panel} p-4 sm:p-5 mb-4`}>
-        <div className="flex items-center justify-between mb-3">
-          <div className={`font-semibold text-sm ${T.text}`}>Chat Messages</div>
-          <button
-            onClick={() => setChatText(SAMPLE_CHAT)}
-            className={`${T.chipIdle} px-2.5 py-1 rounded text-xs flex items-center gap-1`}
-          >
-            <ClipboardPaste className="w-3 h-3" /> Load sample
-          </button>
-        </div>
-        <textarea
-          value={chatText}
-          onChange={(e) => setChatText(e.target.value)}
-          placeholder={"Paste WhatsApp chat lines here…\n\nExample:\nAli: Let's meet tomorrow at 2pm\nSarah: Please update the docs by Friday"}
-          rows={6}
-          className={`${T.input} w-full rounded-lg px-3 py-2.5 text-sm resize-y`}
-        />
-        <div className="flex items-center justify-between mt-3">
-          <div className={`text-xs ${T.muted}`}>
-            {chatText.trim() ? `${chatText.trim().split("\n").filter(Boolean).length} messages` : "No messages"}
+    <div className="flex h-full">
+      <div className={`${T.sidebar} w-80 shrink-0 flex flex-col`}>
+        <div className="p-3 border-b border-current/10">
+          <div className={`${T.input} flex items-center gap-2 rounded-lg px-3 py-1.5`}>
+            <Search className="w-4 h-4 opacity-60" />
+            <input placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
           </div>
-          <button
-            onClick={handleClassify}
-            disabled={classifying || !chatText.trim()}
-            className={`${T.btn} px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 disabled:opacity-50`}
-          >
-            {classifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {classifying ? "Classifying…" : "Classify with AI"}
-          </button>
+        </div>
+        <div className="flex-1 overflow-auto thin-scroll p-6 text-center">
+          <MessageSquare className={`w-10 h-10 mx-auto mb-3 ${T.muted}`} />
+          <div className={`font-semibold ${T.text}`}>No chats yet</div>
+          <div className={`text-sm ${T.muted} mt-1`}>Once the WhatsApp backend is linked, your conversations will appear here.</div>
         </div>
       </div>
-
-      {/* Error */}
-      {results?.error && (
-        <div className={`${T.panelSoft} p-4 mb-4 border-l-4 border-amber-500`}>
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <div className={`font-semibold text-sm ${T.text}`}>Classification Error</div>
-              <div className={`text-sm ${T.muted} mt-1`}>{results.error}</div>
-            </div>
-          </div>
+      <div className={`flex-1 ${T.panel} m-3 flex items-center justify-center text-center p-8`}>
+        <div>
+          <WhatsPlanLogo size={80} />
+          <div className={`mt-4 font-[var(--font-display)] text-xl font-bold ${T.text}`}>Pick a conversation</div>
+          <div className={`${T.muted} text-sm mt-1 max-w-sm`}>End-to-end planning, side by side with your chats.</div>
         </div>
-      )}
-
-      {/* Results */}
-      {results?.items?.length > 0 && (
-        <div className={`${T.panel} p-4 sm:p-5`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className={`font-semibold ${T.text}`}>
-              Classified {results.items.length} item{results.items.length !== 1 ? "s" : ""}
-            </div>
-            <div className="flex gap-2">
-              {!routed ? (
-                <button
-                  onClick={handleRouteToBoards}
-                  className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2`}
-                >
-                  <ExternalLink className="w-4 h-4" /> Route to Boards
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 text-[#25d366] font-semibold text-sm">
-                  <Check className="w-4 h-4" /> Routed!
-                </div>
-              )}
-              <button
-                onClick={() => { setResults(null); setChatText(""); setRouted(false); }}
-                className={`${T.btnGhost} px-3 py-2 rounded-lg text-sm flex items-center gap-1`}
-              >
-                <RotateCcw className="w-3 h-3" /> Clear
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {results.items.map((item, idx) => {
-              const meta = TYPE_META[item.type] || TYPE_META.info;
-              const Icon = meta.icon;
-              return (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.08 }}
-                  className={`${T.panelSoft} p-3 sm:p-4 flex items-start gap-3`}
-                >
-                  <div className={`${meta.color} border px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 shrink-0`}>
-                    <Icon className="w-3 h-3" /> {meta.label}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-medium ${T.text}`}>{item.title}</div>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      {item.dueDate && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-[#25d366]/15 text-[#128c7e] font-medium flex items-center gap-1">
-                          <CalendarIcon className="w-3 h-3" /> {item.dueDate}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1 text-xs">
-                        <span className={`w-2 h-2 rounded-full ${PRIO_COLORS[item.priority] || PRIO_COLORS.medium}`} />
-                        {item.priority}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1378,7 +1093,7 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam }) {
       <div className={`${T.panel} p-5`}>
         <div className="flex items-center gap-2 mb-3"><Palette className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Appearance</div></div>
         <p className={`${T.muted} text-sm mb-3`}>All themes use WhatsApp's green palette.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {THEME_KEYS.map((k) => {
             const t = THEMES[k];
             const active = themeKey === k;
@@ -1393,73 +1108,8 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam }) {
             );
           })}
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-current/10">
-          <div>
-            <div className={`font-semibold ${T.text}`}>Cheering Pet</div>
-            <div className={`text-sm ${T.muted}`}>A little companion to celebrate your task completions.</div>
-          </div>
-          <button
-            onClick={() => gam.setPetEnabled(!gam.petEnabled)}
-            className={`w-11 h-6 rounded-full transition-colors relative ${gam.petEnabled ? 'bg-[#25d366]' : 'bg-gray-300'}`}
-          >
-            <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${gam.petEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-          </button>
-        </div>
       </div>
     </div>
-  );
-}
-
-/* ====================================================================== */
-/* Cheering Pet                                                             */
-/* ====================================================================== */
-function CheeringPet({ cheering }) {
-  return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed bottom-6 right-6 z-50 pointer-events-none"
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-      >
-        <motion.div
-          animate={
-            cheering
-              ? { y: [0, -20, 0, -20, 0], scale: [1, 1.1, 1, 1.1, 1], rotate: [0, -10, 10, -10, 0] }
-              : { y: [0, -5, 0], transition: { repeat: Infinity, duration: 3 } }
-          }
-          className="relative"
-        >
-          {/* Pet Body */}
-          <div className="w-16 h-16 bg-[#25d366] rounded-full shadow-lg border-2 border-white flex flex-col items-center justify-center overflow-hidden">
-            {/* Eyes */}
-            <div className="flex gap-2 mb-1">
-              <div className="w-2 h-3 bg-black rounded-full" />
-              <div className="w-2 h-3 bg-black rounded-full" />
-            </div>
-            {/* Mouth */}
-            {cheering ? (
-              <div className="w-4 h-3 bg-black rounded-full overflow-hidden flex items-end justify-center">
-                <div className="w-3 h-2 bg-pink-500 rounded-t-full" />
-              </div>
-            ) : (
-              <div className="w-3 h-1.5 border-b-2 border-black rounded-b-full" />
-            )}
-          </div>
-          {/* Cheering sparks */}
-          {cheering && (
-            <motion.div
-              className="absolute -top-4 -right-4 text-pink-500"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: [0, 1.5, 0], opacity: [0, 1, 0] }}
-              transition={{ duration: 1 }}
-            >
-              <Heart className="w-6 h-6 fill-current" />
-            </motion.div>
-          )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
   );
 }
 
@@ -1483,7 +1133,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
     <div className={`min-h-screen w-full ${T.bg} flex`}>
       {/* Left rail */}
       <aside className={`${T.sidebar} w-20 lg:w-64 shrink-0 flex flex-col`}>
-        <div className="p-4 flex items-center gap-2 justify-center lg:justify-start">
+        <div className="p-4 flex items-center gap-2">
           <WhatsPlanLogo size={32} />
           <div className={`hidden lg:block font-[var(--font-display)] text-lg font-bold ${T.text}`}>WhatsPlan</div>
         </div>
@@ -1534,7 +1184,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              {tab === "chats"    && <ChatsView   T={T} boards={boards} setBoards={setBoards} gam={gam} />}
+              {tab === "chats"    && <ChatsView   T={T} />}
               {tab === "calls"    && <CallsView   T={T} />}
               {tab === "boards"   && <BoardsView  T={T} boards={boards} setBoards={setBoards} gam={gam} />}
               {tab === "badges"   && <BadgesView  T={T} gam={gam} />}
