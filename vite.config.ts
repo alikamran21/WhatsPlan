@@ -13,7 +13,7 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { 
       entry: "server",
-      preset: "cloudflare"
+      preset: "cloudflare-pages"
     },
   },
 });
