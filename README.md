@@ -2,15 +2,11 @@
 
 Chat, plan, win the day. WhatsPlan is a WhatsApp-flavored planning workspace — kanban boards, tables, roadmaps, calendars, checklists, and notes — built on top of an AI layer that reads your group chat and sorts the noise into meetings, tasks, and announcements automatically.
 
-> Built for [Vibathon] · [your team name] · [demo link if deployed]
-
 ## The problem
 
 Group chats move fast. A Zoom link sent at 9:04am is buried under forty messages by 9:20. A task assigned mid-joke gets forgotten. Nobody re-scrolls 200 messages to find a holiday notice from three days ago. WhatsPlan listens, classifies, and surfaces — so the group keeps talking the way it always has, while the important stuff stops getting lost.
 
-## Screenshots
 
-_Add 2–3 screenshots or a short GIF here before submitting — judges look at this before they read anything else._
 
 ## What's built
 
@@ -80,6 +76,4 @@ docs/WhatsPlan-PRD.md             — full product requirements doc
 
 See `docs/WhatsPlan-PRD.md` for the full reasoning behind these priorities.
 
-## License
 
-MIT — see `LICENSE`.
