@@ -1,0 +1,268 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  /* WhatsApp brand */
+  --color-wa-teal: #008069;
+  --color-wa-teal-deep: #00604f;
+  --color-wa-green: #25d366;
+  --color-wa-green-deep: #128c7e;
+  --color-wa-bubble: #d9fdd3;
+  --color-wa-bubble-dark: #005c4b;
+  --color-wa-chat-bg: #efeae2;
+  --color-wa-panel: #ffffff;
+  --color-wa-sidebar: #f0f2f5;
+  --color-wa-ink: #111b21;
+  --color-wa-ink-soft: #54656f;
+  --color-wa-divider: #e9edef;
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.18 0.02 200);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 200);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 200);
+  --primary: oklch(0.52 0.10 175);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.01 180);
+  --secondary-foreground: oklch(0.22 0.02 200);
+  --muted: oklch(0.96 0.005 180);
+  --muted-foreground: oklch(0.50 0.02 200);
+  --accent: oklch(0.93 0.06 160);
+  --accent-foreground: oklch(0.22 0.02 200);
+  --destructive: oklch(0.60 0.20 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.92 0.01 200);
+  --input: oklch(0.92 0.01 200);
+  --ring: oklch(0.52 0.10 175);
+}
+
+.dark {
+  --background: oklch(0.18 0.02 200);
+  --foreground: oklch(0.95 0.01 180);
+  --card: oklch(0.22 0.02 200);
+  --card-foreground: oklch(0.95 0.01 180);
+  --popover: oklch(0.22 0.02 200);
+  --popover-foreground: oklch(0.95 0.01 180);
+  --primary: oklch(0.70 0.16 160);
+  --primary-foreground: oklch(0.15 0.02 200);
+  --secondary: oklch(0.27 0.02 200);
+  --secondary-foreground: oklch(0.95 0.01 180);
+  --muted: oklch(0.27 0.02 200);
+  --muted-foreground: oklch(0.70 0.02 200);
+  --accent: oklch(0.30 0.04 170);
+  --accent-foreground: oklch(0.95 0.01 180);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.70 0.16 160);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body, #root { height: 100%; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ===== Theme atmospheres (background layers) ===== */
+.wa-bg-default { background:
+  radial-gradient(1200px 600px at -10% -10%, #d9fdd3 0%, transparent 60%),
+  radial-gradient(900px 500px at 110% 10%, #cfeee6 0%, transparent 55%),
+  #f0f2f5; }
+.wa-bg-dark { background:
+  radial-gradient(1000px 600px at -10% -10%, #0b3a32 0%, transparent 60%),
+  radial-gradient(900px 500px at 110% 110%, #0a2a26 0%, transparent 55%),
+  #0b141a; color: #e9edef; }
+.wa-bg-brutal { background: #fffbe8; color: #0a0a0a; }
+.wa-bg-skeuo { background: linear-gradient(180deg, #eaf6ee 0%, #d6ece0 100%); color: #0b2a22; }
+.wa-bg-clay  { background: #e6f4ec; color: #11352b; }
+.wa-bg-glass { background:
+  radial-gradient(800px 500px at 10% 10%, #25d366 0%, transparent 55%),
+  radial-gradient(900px 600px at 90% 90%, #128c7e 0%, transparent 55%),
+  linear-gradient(135deg, #064e3b, #022c22);
+  color: #ecfdf5; }
+.wa-bg-neon  { background: #050a08; color: #d1fae5; }
+.wa-bg-paper { background:
+  repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0 1px, transparent 1px 28px),
+  #faf7ef; color: #1a2a26; }
+
+/* ===== Claymorphism utility ===== */
+.clay {
+  background: #d7eee0;
+  box-shadow:
+    14px 14px 28px rgba(15, 60, 45, 0.18),
+    -14px -14px 28px rgba(255, 255, 255, 0.9),
+    inset 2px 2px 4px rgba(255,255,255,0.6),
+    inset -2px -2px 4px rgba(15,60,45,0.08);
+  border-radius: 28px;
+}
+.clay-soft {
+  background: #e9f6ee;
+  box-shadow:
+    8px 8px 16px rgba(15, 60, 45, 0.12),
+    -8px -8px 16px rgba(255, 255, 255, 0.9);
+  border-radius: 22px;
+}
+.clay-inset {
+  background: #dceee3;
+  box-shadow:
+    inset 6px 6px 12px rgba(15,60,45,0.15),
+    inset -6px -6px 12px rgba(255,255,255,0.9);
+  border-radius: 18px;
+}
+
+/* ===== Skeuomorphism utility ===== */
+.skeuo {
+  background: linear-gradient(180deg, #ffffff 0%, #e7f1ea 100%);
+  border: 1px solid #b9d3c4;
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    inset 0 -2px 0 rgba(0,0,0,0.05),
+    0 2px 0 rgba(0,0,0,0.04),
+    0 8px 18px rgba(0, 70, 50, 0.12);
+}
+.skeuo-btn {
+  background: linear-gradient(180deg, #25d366 0%, #128c7e 100%);
+  color: white;
+  border: 1px solid #0e6c61;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 -2px 0 rgba(0,0,0,0.18),
+    0 3px 0 #0a4d44,
+    0 6px 14px rgba(0,80,60,0.35);
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.25);
+}
+.skeuo-btn:active { transform: translateY(2px); box-shadow:
+  inset 0 2px 4px rgba(0,0,0,0.25), 0 1px 0 #0a4d44; }
+
+/* ===== Glassmorphism utility ===== */
+.glass {
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.glass-strong {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.30);
+  backdrop-filter: blur(24px) saturate(160%);
+  border-radius: 22px;
+}
+
+/* ===== Neon utility ===== */
+.neon {
+  background: #0a1410;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(37,211,102,0.2),
+    0 0 24px rgba(37,211,102,0.25),
+    inset 0 0 24px rgba(37,211,102,0.06);
+}
+.neon-text { text-shadow: 0 0 8px rgba(37,211,102,0.7), 0 0 18px rgba(37,211,102,0.45); }
+.neon-btn {
+  background: linear-gradient(180deg, #0f1f18, #0a1410);
+  color: #5eead4;
+  border: 1px solid rgba(94,234,212,0.45);
+  border-radius: 12px;
+  box-shadow: 0 0 18px rgba(94,234,212,0.35), inset 0 0 12px rgba(94,234,212,0.12);
+}
+
+/* ===== Brutal utility (WhatsApp green flavor) ===== */
+.brutal {
+  background: #ffffff;
+  border: 3px solid #0a0a0a;
+  border-radius: 6px;
+  box-shadow: 6px 6px 0 0 #0a0a0a;
+}
+.brutal-accent {
+  background: #25d366;
+  border: 3px solid #0a0a0a;
+  border-radius: 6px;
+  box-shadow: 6px 6px 0 0 #0a0a0a;
+}
+
+/* ===== Paper ===== */
+.paper {
+  background: #fffdf5;
+  border: 1px solid #e6dfc8;
+  border-radius: 4px;
+  box-shadow: 0 1px 0 #e6dfc8, 0 10px 24px -12px rgba(60,40,20,0.25);
+}
+
+/* ===== Animations ===== */
+@keyframes wa-pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+.wa-ring { animation: wa-pulse-ring 1.6s ease-out infinite; }
+
+@keyframes wa-float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.wa-float { animation: wa-float 3.5s ease-in-out infinite; }
+
+@keyframes wa-shine {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.wa-shine {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  background-size: 200% 100%;
+  animation: wa-shine 2.4s ease-in-out infinite;
+}
+
+/* scrollbars subtle */
+.thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 8px; }
+.thin-scroll::-webkit-scrollbar-track { background: transparent; }
