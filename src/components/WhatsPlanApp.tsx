@@ -238,26 +238,42 @@ function useLocal(key, initial) {
 /* ====================================================================== */
 /* WhatsApp logo                                                           */
 /* ====================================================================== */
-/* WPLogo — original speech-bubble + 2x2 task grid (NOT the WhatsApp handset) */
+/* WPLogo — bold speech-bubble + task grid with accent dot */
 function WPLogo({ size = 64 }) {
-  const r = 22;
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-label="WhatsPlan">
       <defs>
-        <linearGradient id="wpg" x1="0" x2="1" y1="0" y2="1">
+        <linearGradient id="wpg" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#25d366" />
-          <stop offset="100%" stopColor="#128c7e" />
+          <stop offset="50%" stopColor="#1eba5a" />
+          <stop offset="100%" stopColor="#0d6b4a" />
         </linearGradient>
+        <filter id="wps">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.25" />
+        </filter>
       </defs>
-      <rect x="6" y="6" width="88" height="88" rx={r} ry={r} fill="url(#wpg)" />
-      {/* 2x2 task grid */}
-      <rect x="22" y="22" width="24" height="24" rx="6" fill="#fff" />
-      <rect x="54" y="22" width="24" height="24" rx="6" fill="#fff" opacity="0.85" />
-      <rect x="22" y="54" width="24" height="24" rx="6" fill="#fff" opacity="0.85" />
-      <rect x="54" y="54" width="24" height="24" rx="6" fill="#fff" />
-      {/* checkmarks in tl + br */}
-      <path d="M28 34 l5 5 l9 -10" fill="none" stroke="#128c7e" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M60 66 l5 5 l9 -10" fill="none" stroke="#128c7e" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* main rounded-square body */}
+      <rect x="6" y="4" width="84" height="76" rx="18" ry="18" fill="url(#wpg)" />
+      {/* speech-bubble tail */}
+      <polygon points="16,76 10,94 38,76" fill="url(#wpg)" />
+      {/* 2×2 task tiles with drop shadow */}
+      <g filter="url(#wps)">
+        <rect x="18" y="16" width="27" height="25" rx="5" fill="#fff" />
+        <rect x="51" y="16" width="27" height="25" rx="5" fill="#fff" opacity="0.75" />
+        <rect x="18" y="47" width="27" height="25" rx="5" fill="#fff" opacity="0.75" />
+        <rect x="51" y="47" width="27" height="25" rx="5" fill="#fff" />
+      </g>
+      {/* bold checkmarks */}
+      <path d="M24 29 l6 6 l11 -12" fill="none" stroke="#0d6b4a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M57 60 l6 6 l11 -12" fill="none" stroke="#0d6b4a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      {/* lines in empty tiles (like task text) */}
+      <rect x="56" y="24" width="16" height="3" rx="1.5" fill="#0d6b4a" opacity="0.5" />
+      <rect x="56" y="30" width="11" height="3" rx="1.5" fill="#0d6b4a" opacity="0.3" />
+      <rect x="23" y="55" width="16" height="3" rx="1.5" fill="#0d6b4a" opacity="0.5" />
+      <rect x="23" y="61" width="11" height="3" rx="1.5" fill="#0d6b4a" opacity="0.3" />
+      {/* notification accent dot */}
+      <circle cx="84" cy="10" r="10" fill="#ff3b3b" />
+      <text x="84" y="14" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="bold" fontFamily="sans-serif">!</text>
     </svg>
   );
 }
