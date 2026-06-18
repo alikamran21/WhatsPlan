@@ -201,20 +201,22 @@
 /* ===== Neon utility ===== */
 .neon {
   background: #0a1410;
-  border: 1px solid rgba(37, 211, 102, 0.35);
+  border: 1px solid color-mix(in srgb, var(--wa-glow, #25d366) 35%, transparent);
   border-radius: 14px;
   box-shadow:
-    0 0 0 1px rgba(37,211,102,0.2),
-    0 0 24px rgba(37,211,102,0.25),
-    inset 0 0 24px rgba(37,211,102,0.06);
+    0 0 0 1px color-mix(in srgb, var(--wa-glow, #25d366) 20%, transparent),
+    0 0 24px color-mix(in srgb, var(--wa-glow, #25d366) 30%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--wa-glow, #25d366) 8%, transparent);
 }
-.neon-text { text-shadow: 0 0 8px rgba(37,211,102,0.7), 0 0 18px rgba(37,211,102,0.45); }
+.neon-text { text-shadow: 0 0 8px color-mix(in srgb, var(--wa-glow, #25d366) 75%, transparent),
+                          0 0 18px color-mix(in srgb, var(--wa-glow, #25d366) 50%, transparent); }
 .neon-btn {
   background: linear-gradient(180deg, #0f1f18, #0a1410);
-  color: #5eead4;
-  border: 1px solid rgba(94,234,212,0.45);
+  color: color-mix(in srgb, var(--wa-glow, #5eead4) 90%, white);
+  border: 1px solid color-mix(in srgb, var(--wa-glow, #5eead4) 50%, transparent);
   border-radius: 12px;
-  box-shadow: 0 0 18px rgba(94,234,212,0.35), inset 0 0 12px rgba(94,234,212,0.12);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--wa-glow, #5eead4) 40%, transparent),
+              inset 0 0 12px color-mix(in srgb, var(--wa-glow, #5eead4) 15%, transparent);
 }
 
 /* ===== Brutal utility (WhatsApp green flavor) ===== */

@@ -1,13 +1,16 @@
 // @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import {
   MessageSquare, Phone, Kanban, Award, Settings as SettingsIcon,
   Search, Plus, Send, Paperclip, Smile, Mic, MoreVertical, Lock,
   Palette, User, LogOut, Flame, Trophy, Star, ShieldCheck, Sparkles,
   Calendar as CalendarIcon, ListChecks, StickyNote, Table as TableIcon,
   GitBranch, Columns3, Pencil, Trash2, Check, X, ChevronRight, ChevronDown,
-  Mail, KeyRound, ArrowRight,
+  Mail, KeyRound, ArrowRight, Bell, Shield, Database, Keyboard, HelpCircle,
+  Globe, Type, Wallpaper, Smartphone, Volume2, Eye, Download, Info,
+  Clock, Tag, AlignLeft, Zap, MessageCircle, RefreshCw,
 } from "lucide-react";
 
 /* ====================================================================== */
@@ -143,20 +146,20 @@ const THEMES = {
     topbar: "glass",
     panel: "glass-strong",
     panelSoft: "glass",
-    accent: "glass-strong bg-[#25d366]/40 text-white",
-    chipActive: "glass-strong bg-[#25d366]/50 text-white",
-    chipIdle: "glass text-white/80 hover:bg-white/15",
-    bubbleMe: "glass bg-[#25d366]/40 text-white",
-    bubbleThem: "glass text-white",
-    input: "glass text-white placeholder:text-white/50 px-3 py-2",
-    btn: "glass-strong bg-[#25d366]/50 text-white hover:bg-[#25d366]/70",
-    btnGhost: "glass text-white",
+    accent: "glass-strong bg-[#25d366]/60 text-white",
+    chipActive: "glass-strong bg-[#25d366]/70 text-white",
+    chipIdle: "glass text-white hover:bg-white/20",
+    bubbleMe: "glass bg-[#25d366]/50 text-white",
+    bubbleThem: "glass bg-white/20 text-white",
+    input: "glass text-white placeholder:text-white/60 px-3 py-2",
+    btn: "glass-strong bg-[#25d366]/70 text-white hover:bg-[#25d366]/85 font-semibold",
+    btnGhost: "glass text-white font-medium",
     column: "glass-strong",
-    card: "glass",
+    card: "glass-strong text-white",
     text: "text-white",
-    muted: "text-white/70",
-    badge: "glass",
-    avatarRing: "ring-2 ring-white/50",
+    muted: "text-white/80",
+    badge: "glass text-white",
+    avatarRing: "ring-2 ring-white/60",
   },
   neon: {
     name: "Neon Glow",
@@ -235,24 +238,20 @@ function useLocal(key, initial) {
 /* ====================================================================== */
 /* WhatsApp logo                                                           */
 /* ====================================================================== */
-function WhatsPlanLogo({ size = 64 }) {
+function WALogo({ size = 64 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden>
       <defs>
-        <linearGradient id="wpg" x1="0" x2="1" y1="0" y2="1">
+        <linearGradient id="wag" x1="0" x2="1" y1="0" y2="1">
           <stop offset="0%" stopColor="#25d366" />
           <stop offset="100%" stopColor="#128c7e" />
         </linearGradient>
       </defs>
-      <rect x="10" y="20" width="80" height="60" rx="16" fill="url(#wpg)" />
-      {/* chat tail */}
-      <path d="M10 50 L10 85 L35 80 Z" fill="url(#wpg)" />
-      {/* tasks/calendar inside */}
-      <rect x="25" y="35" width="20" height="10" rx="3" fill="#ffffff" />
-      <rect x="25" y="55" width="40" height="10" rx="3" fill="#ffffff" />
-      <rect x="55" y="35" width="20" height="10" rx="3" fill="#ffffff" />
-      <circle cx="80" cy="20" r="12" fill="#ff4b4b" />
-      <path d="M75 20 L78 23 L85 16" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="50" cy="50" r="48" fill="url(#wag)" />
+      <path
+        d="M50 22c-15.5 0-28 12.5-28 28 0 5 1.3 9.7 3.7 13.7L22 78l14.7-3.5C40.5 76.7 45.1 78 50 78c15.5 0 28-12.5 28-28S65.5 22 50 22zm16.4 39.6c-.7 1.9-3.9 3.6-5.5 3.8-1.4.2-3.2.3-5.2-.3-1.2-.4-2.7-.9-4.7-1.7-8.3-3.6-13.7-12-14.1-12.6-.4-.5-3.4-4.5-3.4-8.6 0-4.1 2.1-6.1 2.9-6.9.7-.8 1.6-1 2.1-1h1.5c.5 0 1.1 0 1.7 1.3.7 1.5 2.2 5.1 2.4 5.5.2.4.3.9 0 1.4-.3.5-.4.8-.8 1.2-.4.5-.8 1-1.1 1.4-.4.5-.8 1-.3 1.9.5.9 2 3.3 4.3 5.3 3 2.6 5.6 3.5 6.4 3.9.8.4 1.3.4 1.7-.2.5-.7 2-2.3 2.6-3.1.5-.8 1-.7 1.7-.4.7.3 4.5 2.1 5.3 2.5.8.4 1.3.6 1.5.9.2.4.2 2-.5 4z"
+        fill="#fff"
+      />
     </svg>
   );
 }
@@ -261,57 +260,158 @@ function WhatsPlanLogo({ size = 64 }) {
 /* Splash / entry animation                                                */
 /* ====================================================================== */
 function Splash({ onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 2600); return () => clearTimeout(t); }, [onDone]);
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState(0); // 0 aurora, 1 logo, 2 tagline
+  useEffect(() => {
+    const t1 = setTimeout(() => setStage(1), 600);
+    const t2 = setTimeout(() => setStage(2), 1600);
+    const t3 = setTimeout(onDone, 3600);
+    const iv = setInterval(() => setProgress((p) => Math.min(100, p + 3)), 90);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearInterval(iv); };
+  }, [onDone]);
+
+  // particle ring positions
+  const particles = useMemo(() => Array.from({ length: 28 }).map((_, i) => ({
+    a: (i / 28) * Math.PI * 2,
+    r: 180 + (i % 4) * 30,
+    d: 0.6 + (i % 5) * 0.12,
+    s: 2 + (i % 3),
+  })), []);
+
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
-      initial={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}
-      style={{ background: "radial-gradient(60% 60% at 50% 50%, #0c2d24 0%, #050b09 100%)" }}
+      initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.1 }} transition={{ duration: 0.7 }}
     >
-      {/* ripple rings */}
-      {[0, 1, 2].map((i) => (
+      {/* Aurora */}
+      <motion.div className="absolute inset-0"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}
+        style={{
+          background:
+            "radial-gradient(60% 60% at 30% 30%, #25d36655 0%, transparent 60%)," +
+            "radial-gradient(60% 60% at 70% 70%, #128c7e66 0%, transparent 60%)," +
+            "radial-gradient(80% 80% at 50% 50%, #0c2d24 0%, #050b09 100%)",
+        }}
+      />
+      <motion.div className="absolute inset-0 opacity-40"
+        animate={{ backgroundPosition: ["0% 0%", "100% 100%"] }}
+        transition={{ duration: 6, repeat: Infinity, repeatType: "reverse" }}
+        style={{
+          background: "conic-gradient(from 0deg at 50% 50%, #25d36622, transparent 25%, #5eead422, transparent 50%, #128c7e22, transparent 75%, #25d36622)",
+          mixBlendMode: "screen",
+        }}
+      />
+
+      {/* Concentric ripple rings */}
+      {[0, 1, 2, 3].map((i) => (
         <motion.div
           key={i}
-          className="absolute rounded-full border-2 border-[#25d366]/40"
-          initial={{ width: 80, height: 80, opacity: 0 }}
-          animate={{ width: 1200, height: 1200, opacity: [0, 0.5, 0] }}
-          transition={{ duration: 2.2, delay: 0.4 + i * 0.35, ease: "easeOut" }}
+          className="absolute rounded-full border border-[#25d366]/40"
+          style={{ width: 160, height: 160 }}
+          animate={{ scale: [0.5, 6], opacity: [0.7, 0] }}
+          transition={{ duration: 2.6, delay: 0.2 + i * 0.5, ease: "easeOut", repeat: Infinity }}
         />
       ))}
-      {/* floating chat bubbles */}
-      {Array.from({ length: 6 }).map((_, i) => (
+
+      {/* Orbiting particles */}
+      <div className="absolute w-0 h-0">
+        {particles.map((p, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full bg-[#5eead4]"
+            style={{ width: p.s, height: p.s, filter: "drop-shadow(0 0 6px #25d366)" }}
+            initial={{ x: 0, y: 0, opacity: 0 }}
+            animate={{
+              x: [Math.cos(p.a) * p.r * 0.4, Math.cos(p.a) * p.r],
+              y: [Math.sin(p.a) * p.r * 0.4, Math.sin(p.a) * p.r],
+              opacity: [0, 1, 0.6],
+            }}
+            transition={{ duration: 2, delay: 0.4 + p.d * 0.4, ease: "easeOut" }}
+          />
+        ))}
+      </div>
+
+      {/* Floating chat bubble icons */}
+      {[
+        { x: -260, y: -120, d: 0.8 },
+        { x: 240, y: -90, d: 1.0 },
+        { x: -200, y: 140, d: 1.2 },
+        { x: 220, y: 160, d: 1.4 },
+      ].map((b, i) => (
         <motion.div
-          key={"b" + i}
-          className="absolute h-3 w-3 rounded-full bg-[#25d366]"
-          initial={{ x: 0, y: 0, opacity: 0 }}
-          animate={{
-            x: Math.cos((i / 6) * Math.PI * 2) * 220,
-            y: Math.sin((i / 6) * Math.PI * 2) * 220,
-            opacity: [0, 1, 0],
-          }}
-          transition={{ duration: 1.8, delay: 0.6, ease: "easeOut" }}
-        />
+          key={"bb" + i}
+          className="absolute"
+          initial={{ x: 0, y: 0, opacity: 0, scale: 0.4 }}
+          animate={{ x: b.x, y: b.y, opacity: [0, 1, 0.85], scale: 1 }}
+          transition={{ duration: 1.4, delay: b.d, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="rounded-2xl rounded-bl-sm bg-[#25d366]/90 px-3 py-2 shadow-[0_8px_30px_rgba(37,211,102,0.4)]">
+            <MessageCircle className="w-4 h-4 text-white" />
+          </div>
+        </motion.div>
       ))}
+
+      {/* Logo morph */}
       <motion.div
-        initial={{ scale: 0.2, opacity: 0, rotate: -30 }}
-        animate={{ scale: 1, opacity: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 140, damping: 14, delay: 0.1 }}
+        initial={{ scale: 0.05, opacity: 0, rotate: -180, filter: "blur(20px)" }}
+        animate={{ scale: 1, opacity: 1, rotate: 0, filter: "blur(0px)" }}
+        transition={{ type: "spring", stiffness: 90, damping: 14, delay: 0.3 }}
         className="relative"
       >
-        <div className="absolute inset-0 blur-2xl bg-[#25d366]/40 rounded-full" />
-        <WhatsPlanLogo size={128} />
+        <motion.div
+          className="absolute inset-0 rounded-full bg-[#25d366]/50 blur-3xl"
+          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.8, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+        <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+          <WALogo size={140} />
+        </motion.div>
       </motion.div>
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 1.0, duration: 0.6 }}
-        className="absolute bottom-28 text-center"
-      >
-        <div className="font-[var(--font-display)] text-4xl font-bold text-white tracking-tight">
-          WhatsPlan
+
+      {/* Tagline + progress */}
+      <div className="absolute bottom-24 flex flex-col items-center gap-4 w-[min(420px,80vw)]">
+        <AnimatePresence>
+          {stage >= 2 && (
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              className="text-center"
+            >
+              <motion.div
+                className="font-[var(--font-display)] text-5xl font-bold tracking-tight"
+                style={{
+                  background: "linear-gradient(90deg, #25d366, #5eead4, #25d366)",
+                  backgroundSize: "200% 100%",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+                animate={{ backgroundPosition: ["0% 0%", "200% 0%"] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              >
+                WhatsPlan
+              </motion.div>
+              <div className="mt-2 text-sm text-[#a7f3d0] tracking-widest uppercase">
+                Chat · Plan · Win the day
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+          <motion.div
+            className="h-full rounded-full"
+            style={{
+              width: `${progress}%`,
+              background: "linear-gradient(90deg, #128c7e, #25d366, #5eead4)",
+              boxShadow: "0 0 12px #25d366",
+            }}
+          />
         </div>
-        <div className="mt-2 text-sm text-[#a7f3d0]">Chat, plan, win the day.</div>
-      </motion.div>
+        <div className="text-[10px] tracking-[0.3em] text-[#5eead4]/80 uppercase">
+          {progress < 40 ? "Warming up" : progress < 80 ? "Syncing themes" : "Almost ready"}
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -322,50 +422,59 @@ function Splash({ onDone }) {
 function Login({ onLogin }) {
   const [mode, setMode] = useState("signin"); // signin | signup
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");
+  const [qrToken, setQrToken] = useState(() => crypto.randomUUID());
+  const [secondsLeft, setSecondsLeft] = useState(45);
+
+  // refresh QR like WhatsApp Web
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) { setQrToken(crypto.randomUUID()); return 45; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   function submit(e) {
     e.preventDefault();
+    if (mode === "signup" && !name) { setErr("What should we call you?"); return; }
     if (!email || !pwd) { setErr("Enter your email and password."); return; }
     if (!email.includes("@")) { setErr("That doesn't look like an email."); return; }
     if (pwd.length < 4) { setErr("Password should be at least 4 characters."); return; }
-    onLogin({ email });
+    onLogin({ email, name: name || email.split("@")[0] });
   }
 
   return (
     <div className="min-h-screen w-full wa-bg-default flex items-center justify-center p-4">
+      {/* WhatsApp Web style header strip */}
+      <div className="fixed top-0 inset-x-0 h-28 bg-gradient-to-b from-[#00a884] to-[#008069]" />
       <motion.div
         initial={{ y: 24, opacity: 0, scale: 0.96 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 120, damping: 16 }}
-        className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-[#e9edef] overflow-hidden"
+        transition={{ type: "spring", stiffness: 120, damping: 18 }}
+        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-[#e9edef] overflow-hidden grid grid-cols-1 md:grid-cols-[1.05fr_1fr]"
       >
-        <div className="bg-gradient-to-br from-[#128c7e] to-[#25d366] p-6 text-white relative overflow-hidden">
-          <motion.div
-            className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10"
-            animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 4, repeat: Infinity }}
-          />
-          <div className="flex items-center gap-3 relative">
-            <WhatsPlanLogo size={44} />
+        {/* LEFT: form */}
+        <div className="p-7 sm:p-9 flex flex-col">
+          <div className="flex items-center gap-3">
+            <WALogo size={40} />
             <div>
-              <div className="font-[var(--font-display)] text-2xl font-bold tracking-tight">WhatsPlan</div>
-              <div className="text-white/85 text-sm">Welcome back. Let's get planning.</div>
+              <div className="font-[var(--font-display)] text-xl font-bold tracking-tight text-[#111b21]">WhatsPlan</div>
+              <div className="text-[#54656f] text-xs">Chat-powered planning</div>
             </div>
           </div>
-        </div>
 
-        <div className="p-6">
-          <div className="flex gap-1 mb-5 bg-[#f0f2f5] rounded-lg p-1">
-            {[
-              { k: "signin", label: "Sign in" },
-              { k: "signup", label: "Create account" },
-            ].map((t) => (
+          <div className="mt-7 flex gap-1 bg-[#f0f2f5] rounded-lg p-1">
+            {[{ k: "signin", label: "Sign in" }, { k: "signup", label: "Create account" }].map((t) => (
               <button
                 key={t.k}
                 onClick={() => { setMode(t.k); setErr(""); }}
                 className={`flex-1 text-sm font-medium py-2 rounded-md transition ${
-                  mode === t.k ? "bg-white text-[#111b21] shadow-sm" : "text-[#54656f]"
+                  mode === t.k ? "bg-white text-[#111b21] shadow-sm" : "text-[#54656f] hover:text-[#111b21]"
                 }`}
               >
                 {t.label}
@@ -373,7 +482,20 @@ function Login({ onLogin }) {
             ))}
           </div>
 
-          <form onSubmit={submit} className="space-y-3">
+          <form onSubmit={submit} className="mt-5 space-y-3">
+            {mode === "signup" && (
+              <label className="block">
+                <span className="text-xs font-medium text-[#54656f]">Display name</span>
+                <div className="mt-1 flex items-center gap-2 border border-[#e9edef] rounded-lg px-3 py-2 focus-within:border-[#00a884]">
+                  <User className="w-4 h-4 text-[#54656f]" />
+                  <input
+                    value={name} onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    className="flex-1 outline-none text-sm text-[#111b21] placeholder:text-[#8696a0] bg-transparent"
+                  />
+                </div>
+              </label>
+            )}
             <label className="block">
               <span className="text-xs font-medium text-[#54656f]">Email</span>
               <div className="mt-1 flex items-center gap-2 border border-[#e9edef] rounded-lg px-3 py-2 focus-within:border-[#00a884]">
@@ -399,20 +521,82 @@ function Login({ onLogin }) {
 
             {err && <div className="text-xs text-red-600">{err}</div>}
 
-            <button
+            <motion.button
+              whileTap={{ scale: 0.98 }}
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#00a884] hover:bg-[#017561] text-white font-medium py-2.5 rounded-lg transition"
+              className="w-full flex items-center justify-center gap-2 bg-[#00a884] hover:bg-[#017561] text-white font-medium py-2.5 rounded-lg transition shadow-md"
             >
               {mode === "signin" ? "Sign in" : "Create account"} <ArrowRight className="w-4 h-4" />
-            </button>
+            </motion.button>
           </form>
 
           <div className="mt-5 rounded-lg bg-[#f0f2f5] p-3 text-xs text-[#54656f] flex gap-2">
             <Lock className="w-4 h-4 shrink-0 mt-0.5 text-[#00a884]" />
-            <span>
-              New here? Link your account with <span className="font-semibold text-[#00a884]">WhatsApp</span> to
-              auto-sync your contacts and planning boards once the backend is connected.
-            </span>
+            <span>End-to-end encrypted. We mirror selected WhatsApp chats only — the WhatsPlan agent surfaces what matters and parks the rest.</span>
+          </div>
+        </div>
+
+        {/* RIGHT: QR pane */}
+        <div className="relative bg-gradient-to-br from-[#f0fdf4] via-white to-[#ecfdf5] border-t md:border-t-0 md:border-l border-[#e9edef] p-7 sm:p-9 flex flex-col items-center justify-center">
+          <div className="text-center mb-5">
+            <div className="inline-flex items-center gap-2 text-[#008069] font-semibold">
+              <Smartphone className="w-4 h-4" /> Link with WhatsApp
+            </div>
+            <p className="text-xs text-[#54656f] mt-1 max-w-xs">
+              Open WhatsApp → <b>Settings</b> → <b>Linked devices</b> → <b>Link a device</b>, then scan this code.
+            </p>
+          </div>
+
+          <motion.div
+            key={qrToken}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="relative p-4 bg-white rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,128,105,0.45)] border border-[#d1f0e1]"
+          >
+            <QRCodeSVG
+              value={`whatsplan://link?token=${qrToken}`}
+              size={208}
+              fgColor="#0b3a32"
+              bgColor="#ffffff"
+              level="H"
+              imageSettings={{ src: "", height: 0, width: 0, excavate: false }}
+            />
+            {/* center logo overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-white rounded-xl p-1.5 shadow-md">
+                <WALogo size={36} />
+              </div>
+            </div>
+            {/* corner accents */}
+            {[
+              "top-1 left-1 border-t-2 border-l-2",
+              "top-1 right-1 border-t-2 border-r-2",
+              "bottom-1 left-1 border-b-2 border-l-2",
+              "bottom-1 right-1 border-b-2 border-r-2",
+            ].map((c, i) => (
+              <div key={i} className={`absolute w-5 h-5 border-[#25d366] rounded-md ${c}`} />
+            ))}
+          </motion.div>
+
+          <button
+            onClick={() => { setQrToken(crypto.randomUUID()); setSecondsLeft(45); }}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh code · {secondsLeft}s
+          </button>
+
+          <div className="mt-5 grid grid-cols-3 gap-2 text-[10px] text-[#54656f] max-w-xs">
+            {[
+              { n: "1", t: "Open WhatsApp" },
+              { n: "2", t: "Linked devices" },
+              { n: "3", t: "Scan code" },
+            ].map((s) => (
+              <div key={s.n} className="bg-white border border-[#e9edef] rounded-lg p-2 text-center">
+                <div className="w-5 h-5 mx-auto rounded-full bg-[#25d366] text-white text-[10px] font-bold flex items-center justify-center">{s.n}</div>
+                <div className="mt-1">{s.t}</div>
+              </div>
+            ))}
           </div>
         </div>
       </motion.div>
@@ -702,16 +886,25 @@ function BoardDetail({ T, board, onBack, onChange, gam }) {
 
 /* ---- Kanban ---- */
 function KanbanView({ T, board, onChange, gam }) {
+  const [editing, setEditing] = useState(null); // {colId, cardId}
   function addCard(colId, title) {
     if (!title) return;
     gam.grant("first_card");
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false }] } : c) });
+      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false, description: "", priority: "medium", due: "", tags: [] }] } : c) });
   }
   function toggle(colId, cardId) {
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
       ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, done: !k.done } : k) } : c) });
     gam.setCompleted((n) => n + 1);
+  }
+  function updateCard(colId, cardId, patch) {
+    onChange({ ...board, columns: board.columns.map((c) => c.id === colId
+      ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, ...patch } : k) } : c) });
+  }
+  function deleteCard(colId, cardId) {
+    onChange({ ...board, columns: board.columns.map((c) => c.id === colId
+      ? { ...c, cards: c.cards.filter((k) => k.id !== cardId) } : c) });
   }
   function addColumn() {
     onChange({ ...board, columns: [...board.columns, { id: crypto.randomUUID(), name: "New column", cards: [] }] });
@@ -722,36 +915,140 @@ function KanbanView({ T, board, onChange, gam }) {
   function deleteColumn(id) {
     onChange({ ...board, columns: board.columns.filter((c) => c.id !== id) });
   }
+  const PRIO = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
+  const openCard = editing ? board.columns.find(c => c.id === editing.colId)?.cards.find(k => k.id === editing.cardId) : null;
   return (
-    <div className="flex gap-4 overflow-x-auto thin-scroll pb-4">
-      {board.columns.map((col) => (
-        <div key={col.id} className={`${T.column} p-3 min-w-[280px] w-[280px]`}>
-          <div className="flex items-center justify-between mb-2">
-            <input value={col.name} onChange={(e) => renameColumn(col.id, e.target.value)}
-              className={`bg-transparent font-semibold ${T.text} outline-none`} />
-            <button onClick={() => deleteColumn(col.id)} className={`${T.muted} hover:text-red-500`}>
-              <Trash2 className="w-4 h-4" />
-            </button>
+    <>
+      <div className="flex gap-4 overflow-x-auto thin-scroll pb-4">
+        {board.columns.map((col) => (
+          <div key={col.id} className={`${T.column} p-3 min-w-[280px] w-[280px]`}>
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <input value={col.name} onChange={(e) => renameColumn(col.id, e.target.value)}
+                className={`bg-transparent font-semibold ${T.text} outline-none min-w-0 flex-1`} />
+              <span className={`text-xs ${T.muted}`}>{col.cards.length}</span>
+              <button onClick={() => deleteColumn(col.id)} className={`${T.muted} hover:text-red-500 shrink-0`}>
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {col.cards.map((c) => (
+                <div
+                  key={c.id}
+                  onDoubleClick={() => setEditing({ colId: col.id, cardId: c.id })}
+                  className={`${T.card} p-3 text-sm ${T.text} flex items-start gap-2 cursor-pointer transition hover:scale-[1.01]`}
+                  title="Double-click to open"
+                >
+                  <button onClick={(e) => { e.stopPropagation(); toggle(col.id, c.id); }} className={`mt-0.5 w-4 h-4 rounded border ${c.done ? "bg-[#25d366] border-[#25d366]" : "border-current opacity-40"} flex items-center justify-center shrink-0`}>
+                    {c.done && <Check className="w-3 h-3 text-white" />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className={c.done ? "line-through opacity-60" : ""}>{c.title}</div>
+                    {(c.due || c.priority) && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                        {c.priority && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: PRIO[c.priority] + "22", color: PRIO[c.priority] }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIO[c.priority] }} /> {c.priority}
+                          </span>
+                        )}
+                        {c.due && (
+                          <span className={`inline-flex items-center gap-1 ${T.muted}`}>
+                            <Clock className="w-3 h-3" /> {c.due}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <AddInline T={T} placeholder="+ Add a card" onAdd={(v) => addCard(col.id, v)} />
           </div>
-          <div className="space-y-2">
-            {col.cards.map((c) => (
-              <div key={c.id} className={`${T.card} p-3 text-sm ${T.text} flex items-start gap-2`}>
-                <button onClick={() => toggle(col.id, c.id)} className={`mt-0.5 w-4 h-4 rounded border ${c.done ? "bg-[#25d366] border-[#25d366]" : "border-current opacity-40"} flex items-center justify-center`}>
-                  {c.done && <Check className="w-3 h-3 text-white" />}
-                </button>
-                <span className={c.done ? "line-through opacity-60" : ""}>{c.title}</span>
-              </div>
-            ))}
-          </div>
-          <AddInline T={T} placeholder="+ Add a card" onAdd={(v) => addCard(col.id, v)} />
-        </div>
-      ))}
-      <button onClick={addColumn} className={`${T.chipIdle} min-w-[160px] rounded-xl p-3 text-sm font-medium self-start`}>
-        + Add column
-      </button>
-    </div>
+        ))}
+        <button onClick={addColumn} className={`${T.chipIdle} min-w-[160px] rounded-xl p-3 text-sm font-medium self-start`}>
+          + Add column
+        </button>
+      </div>
+      <CardModal
+        T={T}
+        card={openCard}
+        onClose={() => setEditing(null)}
+        onSave={(patch) => updateCard(editing.colId, editing.cardId, patch)}
+        onDelete={() => { deleteCard(editing.colId, editing.cardId); setEditing(null); }}
+      />
+    </>
   );
 }
+
+function CardModal({ T, card, onClose, onSave, onDelete }) {
+  return (
+    <AnimatePresence>
+      {card && (
+        <motion.div
+          className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ y: 30, opacity: 0, scale: 0.96 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 30, opacity: 0, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`${T.panel} w-full max-w-lg p-6 relative`}
+          >
+            <button onClick={onClose} className={`${T.muted} absolute top-3 right-3 hover:text-red-500`}>
+              <X className="w-5 h-5" />
+            </button>
+            <div className={`text-xs uppercase tracking-wider ${T.muted} mb-2`}>Card</div>
+            <input
+              value={card.title} onChange={(e) => onSave({ title: e.target.value })}
+              className={`bg-transparent w-full text-xl font-bold ${T.text} outline-none mb-3`}
+              placeholder="Card title"
+            />
+            <div className="space-y-3">
+              <div>
+                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><AlignLeft className="w-3 h-3" /> Description</div>
+                <textarea
+                  value={card.description || ""} onChange={(e) => onSave({ description: e.target.value })}
+                  placeholder="Add notes, context, or links…"
+                  className={`${T.input} w-full rounded-lg px-3 py-2 text-sm min-h-[80px]`}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Clock className="w-3 h-3" /> Due date</div>
+                  <input
+                    type="date" value={card.due || ""} onChange={(e) => onSave({ due: e.target.value })}
+                    className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`}
+                  />
+                </div>
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Zap className="w-3 h-3" /> Priority</div>
+                  <div className="flex gap-1">
+                    {["low", "medium", "high"].map((p) => (
+                      <button key={p}
+                        onClick={() => onSave({ priority: p })}
+                        className={`flex-1 px-2 py-2 rounded-lg text-xs font-medium capitalize transition ${card.priority === p ? T.chipActive : T.chipIdle}`}>
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between mt-5">
+              <button onClick={onDelete} className="text-red-500 text-sm flex items-center gap-1 hover:underline">
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+              <button onClick={onClose} className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium`}>Done</button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 
 function AddInline({ T, placeholder, onAdd }) {
   const [v, setV] = useState("");
@@ -862,6 +1159,8 @@ function RoadmapView({ T, board, onChange, gam }) {
 /* ---- Calendar ---- */
 function CalendarView({ T, board, onChange }) {
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const [editing, setEditing] = useState(null); // event or new draft
+  const [draftDate, setDraftDate] = useState(null);
   const first = new Date(cursor.y, cursor.m, 1);
   const startDay = first.getDay();
   const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
@@ -870,48 +1169,151 @@ function CalendarView({ T, board, onChange }) {
     return day >= 1 && day <= daysInMonth ? day : null;
   });
   const monthName = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-  function eventsOn(d) {
-    const iso = new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10);
-    return board.events.filter((e) => e.date === iso);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const COLORS = ["#25d366", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+  function isoFor(d) { return new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10); }
+  function eventsOn(d) { return board.events.filter((e) => e.date === isoFor(d)).sort((a,b)=> (a.time||"").localeCompare(b.time||"")); }
+  function openNew(d) { setDraftDate(isoFor(d)); setEditing({ id: null, date: isoFor(d), title: "", time: "", color: COLORS[0], note: "" }); }
+  function saveEvent(ev) {
+    if (!ev.title) { setEditing(null); return; }
+    if (ev.id) onChange({ ...board, events: board.events.map(e => e.id === ev.id ? ev : e) });
+    else onChange({ ...board, events: [...board.events, { ...ev, id: crypto.randomUUID() }] });
+    setEditing(null);
   }
-  function addEvent(d) {
-    const title = prompt("Event title?");
-    if (!title) return;
-    const iso = new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10);
-    onChange({ ...board, events: [...board.events, { id: crypto.randomUUID(), date: iso, title }] });
-  }
+  function deleteEvent(id) { onChange({ ...board, events: board.events.filter(e => e.id !== id) }); setEditing(null); }
   function go(delta) {
     let m = cursor.m + delta, y = cursor.y;
     if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
     setCursor({ y, m });
   }
+  function goToday() { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }); }
+
+  const upcoming = useMemo(() => {
+    return [...board.events]
+      .filter((e) => e.date >= todayIso)
+      .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))
+      .slice(0, 5);
+  }, [board.events]);
+
   return (
-    <div className={`${T.panel} p-5`}>
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => go(-1)} className={`${T.btnGhost} px-3 py-1 rounded-lg`}>‹</button>
-        <div className={`font-semibold ${T.text}`}>{monthName}</div>
-        <button onClick={() => go(1)} className={`${T.btnGhost} px-3 py-1 rounded-lg`}>›</button>
-      </div>
-      <div className={`grid grid-cols-7 gap-1 text-xs font-medium mb-1 ${T.muted}`}>
-        {["S","M","T","W","T","F","S"].map((d, i) => <div key={i} className="text-center py-1">{d}</div>)}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((d, i) => (
-          <div key={i} className={`${d ? T.panelSoft : ""} min-h-[72px] p-1 text-xs ${T.text}`}>
-            {d && (
-              <>
-                <button onClick={() => addEvent(d)} className="w-full text-left font-semibold opacity-70 hover:opacity-100">{d}</button>
-                {eventsOn(d).map((e) => (
-                  <div key={e.id} className={`${T.accent} px-1.5 py-0.5 rounded mt-1 truncate`}>{e.title}</div>
-                ))}
-              </>
-            )}
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
+      <div className={`${T.panel} p-5`}>
+        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button onClick={() => go(-1)} className={`${T.btnGhost} px-3 py-1 rounded-lg`}>‹</button>
+            <div className={`font-semibold ${T.text} min-w-[160px] text-center`}>{monthName}</div>
+            <button onClick={() => go(1)} className={`${T.btnGhost} px-3 py-1 rounded-lg`}>›</button>
           </div>
-        ))}
+          <button onClick={goToday} className={`${T.chipIdle} px-3 py-1 rounded-lg text-xs font-medium`}>Today</button>
+        </div>
+        <div className={`grid grid-cols-7 gap-1 text-xs font-medium mb-1 ${T.muted}`}>
+          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => <div key={i} className="text-center py-1">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((d, i) => {
+            const iso = d ? isoFor(d) : null;
+            const isToday = iso === todayIso;
+            const evs = d ? eventsOn(d) : [];
+            return (
+              <div key={i}
+                className={`${d ? T.panelSoft : "opacity-0 pointer-events-none"} min-h-[88px] p-1.5 text-xs ${T.text} ${isToday ? "ring-2 ring-[#25d366]" : ""} relative group`}>
+                {d && (
+                  <>
+                    <button onClick={() => openNew(d)} className={`w-full text-left font-semibold ${isToday ? "text-[#25d366]" : "opacity-70"} hover:opacity-100`}>
+                      {d}{isToday && <span className="ml-1 text-[9px] uppercase tracking-wider">today</span>}
+                    </button>
+                    <div className="mt-1 space-y-0.5">
+                      {evs.slice(0, 3).map((e) => (
+                        <button key={e.id}
+                          onClick={() => setEditing(e)}
+                          className="w-full text-left text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1"
+                          style={{ background: (e.color || "#25d366") + "33", color: e.color || "#25d366" }}>
+                          {e.time && <span className="font-semibold">{e.time}</span>} {e.title}
+                        </button>
+                      ))}
+                      {evs.length > 3 && <div className={`text-[9px] ${T.muted}`}>+{evs.length - 3} more</div>}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Sidebar: upcoming */}
+      <div className={`${T.panel} p-4 self-start`}>
+        <div className={`font-semibold ${T.text} flex items-center gap-2 mb-3`}>
+          <Clock className="w-4 h-4" /> Upcoming
+        </div>
+        {upcoming.length === 0 && <div className={`text-sm ${T.muted}`}>Nothing scheduled. Click any day to add an event.</div>}
+        <div className="space-y-2">
+          {upcoming.map((e) => (
+            <button key={e.id} onClick={() => setEditing(e)} className={`${T.panelSoft} w-full p-2 text-left flex items-start gap-2`}>
+              <div className="w-1 self-stretch rounded-full" style={{ background: e.color || "#25d366" }} />
+              <div className="min-w-0 flex-1">
+                <div className={`text-sm font-medium ${T.text} truncate`}>{e.title}</div>
+                <div className={`text-[11px] ${T.muted}`}>{e.date}{e.time ? ` · ${e.time}` : ""}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Event modal */}
+      <AnimatePresence>
+        {editing && (
+          <motion.div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditing(null)}>
+            <motion.div onClick={(e)=>e.stopPropagation()}
+              initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+              className={`${T.panel} w-full max-w-md p-5 relative`}>
+              <button onClick={() => setEditing(null)} className={`${T.muted} absolute top-3 right-3`}><X className="w-5 h-5" /></button>
+              <div className={`text-xs uppercase tracking-wider ${T.muted} mb-2`}>Event · {editing.date}</div>
+              <input autoFocus value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                placeholder="Event title"
+                className={`bg-transparent w-full text-lg font-bold ${T.text} outline-none mb-3`} />
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1`}>Date</div>
+                  <input type="date" value={editing.date} onChange={(e) => setEditing({ ...editing, date: e.target.value })}
+                    className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm`} />
+                </div>
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1`}>Time</div>
+                  <input type="time" value={editing.time || ""} onChange={(e) => setEditing({ ...editing, time: e.target.value })}
+                    className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm`} />
+                </div>
+              </div>
+              <div className="mb-3">
+                <div className={`text-xs ${T.muted} mb-1`}>Color</div>
+                <div className="flex gap-2">
+                  {COLORS.map((c) => (
+                    <button key={c} onClick={() => setEditing({ ...editing, color: c })}
+                      className={`w-7 h-7 rounded-full border-2 ${editing.color === c ? "border-white scale-110 ring-2 ring-current" : "border-transparent"}`}
+                      style={{ background: c }} />
+                  ))}
+                </div>
+              </div>
+              <textarea value={editing.note || ""} onChange={(e) => setEditing({ ...editing, note: e.target.value })}
+                placeholder="Notes (optional)"
+                className={`${T.input} w-full rounded-lg px-3 py-2 text-sm min-h-[60px] mb-3`} />
+              <div className="flex justify-between">
+                {editing.id ? (
+                  <button onClick={() => deleteEvent(editing.id)} className="text-red-500 text-sm flex items-center gap-1 hover:underline">
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </button>
+                ) : <span />}
+                <button onClick={() => saveEvent(editing)} className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium`}>Save</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
 
 /* ---- Checklist ---- */
 function ChecklistView({ T, board, onChange, gam }) {
@@ -983,7 +1385,7 @@ function NotesView({ T, board, onChange }) {
 /* ====================================================================== */
 /* Chats / Calls placeholder views                                          */
 /* ====================================================================== */
-function ChatsView({ T }) {
+function ChatsView({ T, wallpaper }) {
   return (
     <div className="flex h-full">
       <div className={`${T.sidebar} w-80 shrink-0 flex flex-col`}>
@@ -999,9 +1401,9 @@ function ChatsView({ T }) {
           <div className={`text-sm ${T.muted} mt-1`}>Once the WhatsApp backend is linked, your conversations will appear here.</div>
         </div>
       </div>
-      <div className={`flex-1 ${T.panel} m-3 flex items-center justify-center text-center p-8`}>
+      <div className={`flex-1 ${T.panel} m-3 flex items-center justify-center text-center p-8`} style={wallpaper ? { background: wallpaper } : undefined}>
         <div>
-          <WhatsPlanLogo size={80} />
+          <WALogo size={80} />
           <div className={`mt-4 font-[var(--font-display)] text-xl font-bold ${T.text}`}>Pick a conversation</div>
           <div className={`${T.muted} text-sm mt-1 max-w-sm`}>End-to-end planning, side by side with your chats.</div>
         </div>
@@ -1070,43 +1472,226 @@ function BadgesView({ T, gam }) {
 /* ====================================================================== */
 /* Settings view                                                            */
 /* ====================================================================== */
-function SettingsView({ T, user, themeKey, setTheme, onLogout, gam }) {
+function ToggleRow({ T, label, hint, value, onChange, icon: Icon }) {
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className={`${T.panelSoft} flex items-center gap-3 p-3`}>
+      {Icon && <Icon className={`w-4 h-4 ${T.text} shrink-0`} />}
+      <div className="min-w-0 flex-1">
+        <div className={`text-sm font-medium ${T.text}`}>{label}</div>
+        {hint && <div className={`text-xs ${T.muted}`}>{hint}</div>}
+      </div>
+      <button onClick={() => onChange(!value)}
+        className={`shrink-0 w-10 h-6 rounded-full transition relative ${value ? "bg-[#25d366]" : "bg-black/20"}`}>
+        <span className={`absolute top-0.5 ${value ? "left-5" : "left-0.5"} w-5 h-5 rounded-full bg-white shadow transition-all`} />
+      </button>
+    </div>
+  );
+}
+
+const GLOW_COLORS = [
+  { name: "WhatsApp", c: "#25d366" },
+  { name: "Mint",     c: "#5eead4" },
+  { name: "Cyan",     c: "#22d3ee" },
+  { name: "Violet",   c: "#a78bfa" },
+  { name: "Pink",     c: "#f472b6" },
+  { name: "Amber",    c: "#fbbf24" },
+  { name: "Crimson",  c: "#f87171" },
+];
+
+function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, setSettings, glowColor, setGlowColor }) {
+  const [section, setSection] = useState("account");
+  const sections = [
+    { id: "account",       label: "Account",       icon: User },
+    { id: "appearance",    label: "Appearance",    icon: Palette },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "privacy",       label: "Privacy",       icon: Shield },
+    { id: "chats",         label: "Chats",         icon: MessageSquare },
+    { id: "storage",       label: "Storage & data",icon: Database },
+    { id: "shortcuts",     label: "Shortcuts",     icon: Keyboard },
+    { id: "help",          label: "Help",          icon: HelpCircle },
+  ];
+  const set = (patch) => setSettings({ ...settings, ...patch });
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
       <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text} mb-6`}>Settings</h2>
 
-      <div className={`${T.panel} p-5 mb-4`}>
-        <div className="flex items-center gap-3">
-          <div className={`${T.accent} w-12 h-12 rounded-full flex items-center justify-center font-bold`}>
-            {(user?.email?.[0] || "U").toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <div className={`font-semibold truncate ${T.text}`}>{user?.email || "Guest"}</div>
-            <div className={`text-xs ${T.muted}`}>Signed in</div>
-          </div>
-          <button onClick={onLogout} className={`${T.btnGhost} ml-auto px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1`}>
-            <LogOut className="w-4 h-4" /> Sign out
-          </button>
-        </div>
-      </div>
-
-      <div className={`${T.panel} p-5`}>
-        <div className="flex items-center gap-2 mb-3"><Palette className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Appearance</div></div>
-        <p className={`${T.muted} text-sm mb-3`}>All themes use WhatsApp's green palette.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {THEME_KEYS.map((k) => {
-            const t = THEMES[k];
-            const active = themeKey === k;
+      <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+        {/* sidebar */}
+        <nav className={`${T.panel} p-2 self-start md:sticky md:top-4`}>
+          {sections.map((s) => {
+            const Icon = s.icon;
+            const active = section === s.id;
             return (
-              <button key={k} onClick={() => { setTheme(k); gam.tryTheme(k); }}
-                className={`${active ? T.chipActive : T.chipIdle} p-2 rounded-lg text-left`}>
-                <div className="flex gap-1 mb-2">
-                  {t.swatch.map((c, i) => <div key={i} className="h-3 flex-1 rounded" style={{ background: c }} />)}
-                </div>
-                <div className="text-xs font-medium">{t.name}</div>
+              <button key={s.id} onClick={() => setSection(s.id)}
+                className={`${active ? T.chipActive : T.chipIdle} w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium mb-1`}>
+                <Icon className="w-4 h-4" /> <span>{s.label}</span>
               </button>
             );
           })}
+        </nav>
+
+        <div className="space-y-4">
+          {section === "account" && (
+            <div className={`${T.panel} p-5`}>
+              <div className="flex items-center gap-3">
+                <div className={`${T.accent} w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg`}>
+                  {(user?.name?.[0] || user?.email?.[0] || "U").toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className={`font-semibold truncate ${T.text}`}>{user?.name || user?.email || "Guest"}</div>
+                  <div className={`text-xs ${T.muted} truncate`}>{user?.email}</div>
+                  <div className={`text-[11px] ${T.muted} mt-0.5`}>WhatsApp link · pending backend</div>
+                </div>
+                <button onClick={onLogout} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 shrink-0`}>
+                  <LogOut className="w-4 h-4" /> Sign out
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === "appearance" && (
+            <>
+              <div className={`${T.panel} p-5`}>
+                <div className="flex items-center gap-2 mb-3"><Palette className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Theme</div></div>
+                <p className={`${T.muted} text-sm mb-3`}>All themes use WhatsApp's green palette.</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {THEME_KEYS.map((k) => {
+                    const t = THEMES[k];
+                    const active = themeKey === k;
+                    return (
+                      <button key={k} onClick={() => { setTheme(k); gam.tryTheme(k); }}
+                        className={`${active ? T.chipActive : T.chipIdle} p-2 rounded-lg text-left`}>
+                        <div className="flex gap-1 mb-2">
+                          {t.swatch.map((c, i) => <div key={i} className="h-3 flex-1 rounded" style={{ background: c }} />)}
+                        </div>
+                        <div className="text-xs font-medium">{t.name}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {themeKey === "neon" && (
+                <div className={`${T.panel} p-5`}>
+                  <div className="flex items-center gap-2 mb-3"><Zap className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Neon glow color</div></div>
+                  <p className={`${T.muted} text-sm mb-3`}>Pick the glow that surrounds your panels and buttons.</p>
+                  <div className="flex flex-wrap gap-3">
+                    {GLOW_COLORS.map((g) => (
+                      <button key={g.c} onClick={() => setGlowColor(g.c)}
+                        className={`relative w-12 h-12 rounded-full transition ${glowColor === g.c ? "scale-110 ring-2 ring-white" : ""}`}
+                        style={{ background: g.c, boxShadow: `0 0 18px ${g.c}, inset 0 0 12px ${g.c}88` }}
+                        title={g.name}
+                      >
+                        {glowColor === g.c && <Check className="w-5 h-5 text-white absolute inset-0 m-auto" />}
+                      </button>
+                    ))}
+                    <label className="flex items-center gap-2 ml-2">
+                      <input type="color" value={glowColor} onChange={(e) => setGlowColor(e.target.value)}
+                        className="w-12 h-12 rounded-full border-none cursor-pointer bg-transparent" />
+                      <span className={`text-xs ${T.muted}`}>Custom</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className={`${T.panel} p-5 space-y-2`}>
+                <div className="flex items-center gap-2 mb-2"><Type className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Text & motion</div></div>
+                <div>
+                  <div className={`text-sm ${T.text} mb-1`}>Font size: <b>{settings.fontSize}px</b></div>
+                  <input type="range" min={12} max={20} value={settings.fontSize} onChange={(e) => set({ fontSize: +e.target.value })} className="w-full accent-[#25d366]" />
+                </div>
+                <ToggleRow T={T} label="Reduce motion" hint="Tone down animations" icon={Sparkles}
+                  value={settings.reduceMotion} onChange={(v) => set({ reduceMotion: v })} />
+                <ToggleRow T={T} label="Show streak in sidebar" icon={Flame}
+                  value={settings.showStreak} onChange={(v) => set({ showStreak: v })} />
+              </div>
+            </>
+          )}
+
+          {section === "notifications" && (
+            <div className={`${T.panel} p-5 space-y-2`}>
+              <div className="flex items-center gap-2 mb-2"><Bell className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Notifications</div></div>
+              <ToggleRow T={T} icon={MessageSquare} label="Message notifications" hint="New chats arrive in WhatsPlan" value={settings.notifMessages} onChange={(v) => set({ notifMessages: v })} />
+              <ToggleRow T={T} icon={Kanban} label="Board reminders" hint="Due dates and assignments" value={settings.notifBoards} onChange={(v) => set({ notifBoards: v })} />
+              <ToggleRow T={T} icon={Volume2} label="Sounds" value={settings.notifSounds} onChange={(v) => set({ notifSounds: v })} />
+              <ToggleRow T={T} icon={Eye} label="Show previews" value={settings.notifPreviews} onChange={(v) => set({ notifPreviews: v })} />
+            </div>
+          )}
+
+          {section === "privacy" && (
+            <div className={`${T.panel} p-5 space-y-2`}>
+              <div className="flex items-center gap-2 mb-2"><Shield className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Privacy</div></div>
+              <ToggleRow T={T} icon={Eye} label="Read receipts" value={settings.readReceipts} onChange={(v) => set({ readReceipts: v })} />
+              <ToggleRow T={T} icon={Clock} label="Last seen" value={settings.lastSeen} onChange={(v) => set({ lastSeen: v })} />
+              <ToggleRow T={T} icon={Lock} label="Encrypt local boards" hint="PIN required to open WhatsPlan" value={settings.encryptLocal} onChange={(v) => set({ encryptLocal: v })} />
+              <ToggleRow T={T} icon={ShieldCheck} label="Disappearing messages" value={settings.disappearing} onChange={(v) => set({ disappearing: v })} />
+            </div>
+          )}
+
+          {section === "chats" && (
+            <div className={`${T.panel} p-5 space-y-2`}>
+              <div className="flex items-center gap-2 mb-2"><MessageSquare className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Chats</div></div>
+              <div className={`${T.panelSoft} p-3`}>
+                <div className={`text-sm font-medium ${T.text} mb-2 flex items-center gap-2`}><Wallpaper className="w-4 h-4" /> Chat wallpaper</div>
+                <div className="grid grid-cols-6 gap-2">
+                  {["#efeae2", "#d9fdd3", "#0b141a", "#fffdf5", "#e6f4ec", "#050a08"].map((c) => (
+                    <button key={c} onClick={() => set({ wallpaper: c })}
+                      className={`h-10 rounded-lg border-2 ${settings.wallpaper === c ? "border-[#25d366]" : "border-transparent"}`}
+                      style={{ background: c }} />
+                  ))}
+                </div>
+              </div>
+              <div className={`${T.panelSoft} p-3`}>
+                <div className={`text-sm font-medium ${T.text} mb-1 flex items-center gap-2`}><Globe className="w-4 h-4" /> Language</div>
+                <select value={settings.language} onChange={(e) => set({ language: e.target.value })}
+                  className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm`}>
+                  {["English", "Hindi", "Spanish", "Arabic", "Portuguese", "French"].map((l) => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+              <ToggleRow T={T} icon={Sparkles} label="WhatsPlan agent" hint="Auto-surface important conversations into boards" value={settings.agent} onChange={(v) => set({ agent: v })} />
+              <ToggleRow T={T} icon={Download} label="Auto-download media" value={settings.autoDownload} onChange={(v) => set({ autoDownload: v })} />
+            </div>
+          )}
+
+          {section === "storage" && (
+            <div className={`${T.panel} p-5 space-y-3`}>
+              <div className="flex items-center gap-2"><Database className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Storage & data</div></div>
+              <div className={`${T.panelSoft} p-3`}>
+                <div className={`text-sm ${T.text} flex justify-between`}><span>Local app data</span><span className="font-semibold">~ {((JSON.stringify(localStorage).length / 1024) | 0)} KB</span></div>
+                <div className="h-2 rounded-full bg-black/10 mt-2 overflow-hidden">
+                  <div className="h-full bg-[#25d366]" style={{ width: "18%" }} />
+                </div>
+              </div>
+              <button onClick={() => { if (confirm("Clear local boards, badges and settings?")) { localStorage.clear(); location.reload(); } }}
+                className="text-red-500 text-sm hover:underline">Clear all local data</button>
+            </div>
+          )}
+
+          {section === "shortcuts" && (
+            <div className={`${T.panel} p-5`}>
+              <div className="flex items-center gap-2 mb-3"><Keyboard className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Keyboard shortcuts</div></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                {[
+                  ["New board", "N"], ["Search", "/"], ["Open boards", "G then B"],
+                  ["Open chats", "G then C"], ["Settings", ","], ["Toggle theme", "T"],
+                ].map(([k, v]) => (
+                  <div key={k} className={`${T.panelSoft} p-2 flex justify-between items-center`}>
+                    <span className={T.text}>{k}</span>
+                    <kbd className={`${T.badge} px-2 py-0.5 rounded text-xs font-mono`}>{v}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {section === "help" && (
+            <div className={`${T.panel} p-5 space-y-2`}>
+              <div className="flex items-center gap-2 mb-2"><HelpCircle className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Help & About</div></div>
+              <div className={`${T.panelSoft} p-3 text-sm ${T.text}`}>WhatsPlan v1.0 — Frontend preview. Backend coming soon.</div>
+              <div className={`${T.panelSoft} p-3 text-sm ${T.text} flex items-center gap-2`}><Info className="w-4 h-4" /> Tip: double-click a card on Kanban boards to edit it.</div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1124,17 +1709,31 @@ const TABS = [
   { id: "settings",label: "Settings",icon: SettingsIcon },
 ];
 
+const DEFAULT_SETTINGS = {
+  fontSize: 14, reduceMotion: false, showStreak: true,
+  notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
+  readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
+  wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
+};
+
 function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
   const T = THEMES[themeKey] || THEMES.default;
   const [tab, setTab] = useState("boards");
   const [boards, setBoards] = useLocal("wp_boards", []);
+  const [settings, setSettings] = useLocal("wp_settings", DEFAULT_SETTINGS);
+  const [glowColor, setGlowColor] = useLocal("wp_glow", "#25d366");
+
+  // apply neon glow custom color via CSS vars
+  const styleVars = themeKey === "neon"
+    ? { ["--wa-glow"]: glowColor, fontSize: settings.fontSize }
+    : { fontSize: settings.fontSize };
 
   return (
-    <div className={`min-h-screen w-full ${T.bg} flex`}>
+    <div className={`min-h-screen w-full ${T.bg} flex`} style={styleVars}>
       {/* Left rail */}
-      <aside className={`${T.sidebar} w-20 lg:w-64 shrink-0 flex flex-col`}>
-        <div className="p-4 flex items-center gap-2">
-          <WhatsPlanLogo size={32} />
+      <aside className={`${T.sidebar} w-16 md:w-20 lg:w-64 shrink-0 flex flex-col`}>
+        <div className="p-3 md:p-4 flex items-center gap-2 justify-center lg:justify-start">
+          <WALogo size={32} />
           <div className={`hidden lg:block font-[var(--font-display)] text-lg font-bold ${T.text}`}>WhatsPlan</div>
         </div>
         <nav className="flex-1 px-2 py-2 space-y-1">
@@ -1145,7 +1744,8 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`${active ? T.chipActive : T.chipIdle} w-full rounded-lg flex items-center gap-3 px-3 py-2.5 text-sm font-medium`}
+                title={t.label}
+                className={`${active ? T.chipActive : T.chipIdle} w-full rounded-lg flex items-center gap-3 px-2 lg:px-3 py-2.5 text-sm font-medium justify-center lg:justify-start`}
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 <span className="hidden lg:inline">{t.label}</span>
@@ -1153,24 +1753,30 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
             );
           })}
         </nav>
-        <div className="p-3">
-          <div className={`${T.panelSoft} p-3 hidden lg:block`}>
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-500" />
-              <div className={`text-xs ${T.muted}`}>Streak</div>
+        {settings.showStreak && (
+          <div className="p-2 lg:p-3">
+            <div className={`${T.panelSoft} p-2 lg:p-3 flex lg:block items-center justify-center gap-2`}>
+              <Flame className="w-4 h-4 text-orange-500 shrink-0" />
+              <div className="hidden lg:block">
+                <div className={`text-xs ${T.muted}`}>Streak</div>
+                <div className={`mt-1 text-xl font-bold ${T.text}`}>{gam.streak?.count || 0} <span className={`text-xs font-normal ${T.muted}`}>days</span></div>
+              </div>
+              <div className={`lg:hidden text-sm font-bold ${T.text}`}>{gam.streak?.count || 0}</div>
             </div>
-            <div className={`mt-1 text-xl font-bold ${T.text}`}>{gam.streak?.count || 0} <span className={`text-xs font-normal ${T.muted}`}>days</span></div>
           </div>
-        </div>
+        )}
       </aside>
 
       {/* Main */}
       <main className="flex-1 min-w-0 flex flex-col">
         <header className={`${T.topbar} h-14 flex items-center px-4 gap-3`}>
-          <div className={`font-[var(--font-display)] font-semibold ${T.text} capitalize`}>{tab}</div>
+          <div className={`font-[var(--font-display)] font-semibold ${T.text} capitalize truncate`}>{tab}</div>
           <div className="ml-auto flex items-center gap-2">
-            <div className={`${T.badge} px-2.5 py-1 rounded-full text-xs flex items-center gap-1 ${T.text}`}>
-              <Trophy className="w-3.5 h-3.5" /> {gam.earned.length}
+            <div className={`${T.badge} px-2.5 py-1 rounded-full text-xs flex items-center gap-1`}>
+              <Flame className="w-3.5 h-3.5 text-orange-500" /> <span className={T.text}>{gam.streak?.count || 0}</span>
+            </div>
+            <div className={`${T.badge} px-2.5 py-1 rounded-full text-xs flex items-center gap-1`}>
+              <Trophy className="w-3.5 h-3.5 text-yellow-500" /> <span className={T.text}>{gam.earned.length}</span>
             </div>
           </div>
         </header>
@@ -1181,14 +1787,15 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: settings.reduceMotion ? 0 : 0.2 }}
               className="h-full"
             >
-              {tab === "chats"    && <ChatsView   T={T} />}
+              {tab === "chats"    && <ChatsView   T={T} wallpaper={settings.wallpaper} />}
               {tab === "calls"    && <CallsView   T={T} />}
               {tab === "boards"   && <BoardsView  T={T} boards={boards} setBoards={setBoards} gam={gam} />}
               {tab === "badges"   && <BadgesView  T={T} gam={gam} />}
-              {tab === "settings" && <SettingsView T={T} user={user} themeKey={themeKey} setTheme={setTheme} onLogout={onLogout} gam={gam} />}
+              {tab === "settings" && <SettingsView T={T} user={user} themeKey={themeKey} setTheme={setTheme} onLogout={onLogout} gam={gam}
+                                       settings={settings} setSettings={setSettings} glowColor={glowColor} setGlowColor={setGlowColor} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -1197,20 +1804,15 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
   );
 }
 
+
 /* ====================================================================== */
 /* Root                                                                     */
 /* ====================================================================== */
 export default function WhatsPlanApp() {
-  const [hydrated, setHydrated] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   const [user, setUser] = useLocal("wp_user", null);
   const [themeKey, setThemeKey] = useLocal("wp_theme", null); // null = not yet picked
   const gam = useGamification();
-
-  useEffect(() => { setHydrated(true); }, []);
-  if (!hydrated) {
-    return <div className="min-h-screen wa-bg-default" />;
-  }
 
   return (
     <AnimatePresence mode="wait">
