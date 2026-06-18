@@ -222,13 +222,13 @@
 /* ===== Brutal utility (WhatsApp green flavor) ===== */
 .brutal {
   background: #ffffff;
-  border: 3px solid #0a0a0a;
+  border: 4px solid #0a0a0a;
   border-radius: 6px;
   box-shadow: 6px 6px 0 0 #0a0a0a;
 }
 .brutal-accent {
   background: #25d366;
-  border: 3px solid #0a0a0a;
+  border: 4px solid #0a0a0a;
   border-radius: 6px;
   box-shadow: 6px 6px 0 0 #0a0a0a;
 }
