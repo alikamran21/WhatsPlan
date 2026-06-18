@@ -31,6 +31,10 @@ export const config = {
 
   classifyOwn: String(process.env.CLASSIFY_OWN || "").toLowerCase() === "true",
 
+  // Ban-safety: when true the backend will NEVER send a WhatsApp message
+  // (the API refuses), making the link purely read-only. Strongly recommended.
+  readOnly: String(process.env.READ_ONLY || "").toLowerCase() === "true",
+
   // Raw chat messages are deleted this many hours after they arrive (the AI
   // has already extracted meetings/tasks/announcements by then, and those are
   // kept). Set to 0 to disable auto-purge. Default: 24.

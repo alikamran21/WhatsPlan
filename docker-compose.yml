@@ -4,6 +4,10 @@ services:
     build: ./server
     ports:
       - "4000:4000"
+    environment:
+      # Use the system Chromium baked into the image (set here so it can't be
+      # overridden by an empty value in server/.env).
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     env_file:
       # Optional — copy server/.env.example to server/.env to set your
       # GEMINI_API_KEY / Firebase creds. Without it the server still runs

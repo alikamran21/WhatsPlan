@@ -8,6 +8,12 @@ import { WhatsAppService } from "./whatsapp/client.js";
 import { registerRoutes } from "./routes.js";
 import { startRetention } from "./retention.js";
 
+// whatsapp-web.js drives a headless browser; transient puppeteer errors
+// (e.g. "execution context destroyed" during a WhatsApp Web reload) must NOT
+// crash the whole backend. Log and keep running.
+process.on("unhandledRejection", (e) => console.error("[unhandledRejection]", e?.message || e));
+process.on("uncaughtException", (e) => console.error("[uncaughtException]", e?.message || e));
+
 const app = express();
 app.use(cors({ origin: config.corsOrigin }));
 app.use(express.json());

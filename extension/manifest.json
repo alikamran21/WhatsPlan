@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "WhatsPlan — Private Chat Reader",
+  "version": "0.1.0",
+  "description": "Privately flag important messages in WhatsApp Web chats you explicitly enable. On-device detection. No messages are ever stored.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "http://localhost:5001/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "WhatsPlan" },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["detector.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

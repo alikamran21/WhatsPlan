@@ -717,6 +717,82 @@ function newBoard(type, name) {
   return base;
 }
 
+/* Normalize any item into a Jira-style task (used for converting board styles) */
+function normTask(k = {}) {
+  return {
+    title: k.title || "Untitled",
+    done: !!k.done,
+    description: k.description || "",
+    priority: k.priority || "medium",
+    due: k.due || "",
+    status: k.status || (k.done ? "done" : "todo"),
+    assignee: k.assignee || "",
+    mentions: k.mentions || [],
+    tags: k.tags || [],
+  };
+}
+
+/* Flatten any board into a list of tasks. */
+function boardItems(board) {
+  const out = [];
+  if (board.type === "kanban") for (const c of board.columns || []) for (const k of c.cards || []) out.push(normTask(k));
+  else if (board.type === "checklist") for (const i of board.items || []) out.push(normTask(i));
+  else if (board.type === "roadmap") for (const l of board.lanes || []) for (const i of l.items || []) out.push(normTask(i));
+  else if (board.type === "calendar") for (const e of board.events || []) out.push(normTask({ title: e.title, due: e.date, description: e.note }));
+  else if (board.type === "table") for (const r of board.rows || []) out.push(normTask({ title: (r.values && r.values[0]) || "Row", assignee: (r.values && r.values[1]) || "" }));
+  else if (board.type === "notes") for (const n of board.notes || []) out.push(normTask({ title: (n.text || "Note").split("\n")[0].slice(0, 60) || "Note", description: n.text }));
+  return out;
+}
+
+/* Convert a board to a different style, preserving its tasks where possible. */
+function convertBoard(board, newType) {
+  if (board.type === newType) return board;
+  const items = boardItems(board);
+  const base = { id: board.id, name: board.name, type: newType, createdAt: board.createdAt };
+  if (newType === "kanban") {
+    const cols = [
+      { id: crypto.randomUUID(), name: "To do", cards: [] },
+      { id: crypto.randomUUID(), name: "Doing", cards: [] },
+      { id: crypto.randomUUID(), name: "Done", cards: [] },
+    ];
+    for (const it of items) {
+      const idx = (it.status === "done" || it.done) ? 2 : (it.status === "in-progress" || it.status === "in-review") ? 1 : 0;
+      cols[idx].cards.push({ id: crypto.randomUUID(), ...it });
+    }
+    return { ...base, columns: cols };
+  }
+  if (newType === "checklist") return { ...base, items: items.map((it) => ({ id: crypto.randomUUID(), title: it.title, done: it.done, due: it.due })) };
+  if (newType === "calendar") return { ...base, events: items.filter((it) => it.due).map((it) => ({ id: crypto.randomUUID(), title: it.title, date: it.due, time: "", color: "#25d366", note: it.description || "" })) };
+  if (newType === "roadmap") {
+    const lanes = [
+      { id: crypto.randomUUID(), name: "Now", items: [] },
+      { id: crypto.randomUUID(), name: "Next", items: [] },
+      { id: crypto.randomUUID(), name: "Later", items: [] },
+    ];
+    for (const it of items) lanes[(it.status === "done" || it.done) ? 2 : 0].items.push({ id: crypto.randomUUID(), title: it.title, due: it.due, done: it.done });
+    return { ...base, lanes };
+  }
+  if (newType === "table") return { ...base, columns: ["Title", "Owner", "Status"], rows: items.map((it) => ({ id: crypto.randomUUID(), values: [it.title, it.assignee || "", STATUSES.find((s) => s.id === it.status)?.label || (it.done ? "Done" : "To Do")] })) };
+  if (newType === "notes") return { ...base, notes: items.map((it) => ({ id: crypto.randomUUID(), text: it.title + (it.description ? "\n" + it.description : "") })) };
+  return { ...base };
+}
+
+/* Plain-text summary of a board — shareable into any chat. */
+function boardToText(board) {
+  const items = boardItems(board);
+  let txt = `📋 ${board.name}\n`;
+  if (!items.length) return txt + "(empty board)";
+  for (const it of items) {
+    const box = (it.done || it.status === "done") ? "✅" : "⬜";
+    const bits = [];
+    if (it.assignee) bits.push("@" + it.assignee);
+    if (it.due) bits.push("due " + it.due);
+    if (it.priority && it.priority !== "medium") bits.push(it.priority);
+    txt += `${box} ${it.title}${bits.length ? "  (" + bits.join(", ") + ")" : ""}\n`;
+  }
+  return txt.trim();
+}
+
 function BoardsView({ T, boards, setBoards, gam }) {
   const [openId, setOpenId] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -731,9 +807,27 @@ function BoardsView({ T, boards, setBoards, gam }) {
   }
   function update(updated) { setBoards(boards.map((b) => (b.id === updated.id ? updated : b))); }
   function remove(id) { setBoards(boards.filter((b) => b.id !== id)); if (openId === id) setOpenId(null); }
+  // Shift a card to another board (Kanban/Checklist/Calendar targets).
+  function moveCard(card, fromId, toId) {
+    const target = boards.find((b) => b.id === toId);
+    if (!target) return;
+    const accepts = target.type === "kanban" || target.type === "checklist" || (target.type === "calendar" && card.due);
+    if (!accepts) return;
+    setBoards(boards.map((b) => {
+      if (b.id === fromId && b.type === "kanban") {
+        return { ...b, columns: b.columns.map((c) => ({ ...c, cards: c.cards.filter((k) => k.id !== card.id) })) };
+      }
+      if (b.id === toId) {
+        if (b.type === "kanban") return { ...b, columns: b.columns.map((c, i) => (i === 0 ? { ...c, cards: [{ ...card }, ...c.cards] } : c)) };
+        if (b.type === "checklist") return { ...b, items: [{ id: card.id, title: card.title, done: !!card.done, due: card.due }, ...b.items] };
+        if (b.type === "calendar") return { ...b, events: [{ id: card.id, title: card.title, date: card.due, time: "", color: "#25d366", note: card.description || "" }, ...b.events] };
+      }
+      return b;
+    }));
+  }
 
   if (open) {
-    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} allBoards={boards} />;
+    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} allBoards={boards} onMoveCard={moveCard} />;
   }
 
   return (
@@ -805,7 +899,8 @@ function BoardCreator({ T, onCancel, onCreate }) {
           const Icon = t.icon;
           const active = type === t.id;
           return (
-            <button key={t.id} onClick={() => setType(t.id)}
+            <button key={t.id} onClick={() => setType(t.id)} onDoubleClick={() => onCreate(t.id, name.trim())}
+              title="Double-click to create instantly"
               className={`${active ? T.chipActive : T.chipIdle} rounded-lg p-3 text-left transition`}>
               <div className="flex items-center gap-2"><Icon className="w-4 h-4" /><span className="font-medium text-sm">{t.name}</span></div>
               <div className={`text-xs mt-1 ${active ? "" : T.muted}`}>{t.blurb}</div>
@@ -813,15 +908,18 @@ function BoardCreator({ T, onCancel, onCreate }) {
           );
         })}
       </div>
-      <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onCancel} className={`${T.btnGhost} px-4 py-2 rounded-lg text-sm font-medium`}>Cancel</button>
-        <button onClick={() => onCreate(type, name.trim())} className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium`}>Create</button>
+      <div className="flex items-center justify-between gap-2 mt-4">
+        <span className={`text-[11px] ${T.muted}`}>Tip: double-click a style to create it instantly.</span>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className={`${T.btnGhost} px-4 py-2 rounded-lg text-sm font-medium`}>Cancel</button>
+          <button onClick={() => onCreate(type, name.trim())} className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium`}>Create</button>
+        </div>
       </div>
     </div>
   );
 }
 
-function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
+function BoardDetail({ T, board, onBack, onChange, gam, allBoards, onMoveCard }) {
   const [shareOpen, setShareOpen] = useState(false);
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
@@ -838,13 +936,16 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
           <button onClick={() => setShareOpen(true)} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-1.5`}>
             <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">Share</span>
           </button>
-          <div className={`${T.badge} px-3 py-1 rounded-full text-xs font-medium ${T.text} hidden sm:block`}>
-            {BOARD_TYPES.find((b) => b.id === board.type)?.name}
-          </div>
+          <select value={board.type}
+            onChange={(e) => onChange(convertBoard(board, e.target.value))}
+            title="Change board style (keeps your tasks)"
+            className={`${T.input} rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer`}>
+            {BOARD_TYPES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
         </div>
       </div>
 
-      {board.type === "kanban"    && <KanbanView    T={T} board={board} onChange={onChange} gam={gam} />}
+      {board.type === "kanban"    && <KanbanView    T={T} board={board} onChange={onChange} gam={gam} allBoards={allBoards} onMoveCard={onMoveCard} />}
       {board.type === "table"     && <TableView     T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "roadmap"   && <RoadmapView   T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "calendar"  && <CalendarView  T={T} board={board} onChange={onChange} allBoards={allBoards} />}
@@ -859,12 +960,17 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
 /* ---- Board share modal (frontend shell) ---- */
 function ShareModal({ T, open, onClose, board }) {
   const [copied, setCopied] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
   const [email, setEmail] = useState("");
   const [visibility, setVisibility] = useState("private");
   const link = `https://whatsplan.app/board/${board.id}`;
   function copy() {
     try { navigator.clipboard?.writeText(link); } catch {}
     setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
+  function copyText() {
+    try { navigator.clipboard?.writeText(boardToText(board)); } catch {}
+    setCopiedText(true); setTimeout(() => setCopiedText(false), 2000);
   }
   function invite() {
     // TODO: POST /api/boards/:id/share with emails array
@@ -886,7 +992,11 @@ function ShareModal({ T, open, onClose, board }) {
                 <Copy className="w-3.5 h-3.5" />{copied ? "Copied!" : "Copy link"}
               </button>
             </div>
-            <div className={`text-[11px] ${T.muted} mb-4`}>Backend required — link is a preview pattern only.</div>
+            <div className={`text-[11px] ${T.muted} mb-3`}>The link goes live once the backend is connected.</div>
+
+            <button onClick={copyText} className={`${T.btnGhost} w-full px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center gap-2 mb-4`}>
+              <MessageCircle className="w-4 h-4" /> {copiedText ? "Copied summary!" : "Copy as text — paste into any chat"}
+            </button>
 
             <div className={`text-sm font-medium ${T.text} mb-2`}>Share with…</div>
             <div className="flex gap-2 mb-2 opacity-70">
@@ -912,22 +1022,76 @@ function ShareModal({ T, open, onClose, board }) {
 }
 
 /* ---- Kanban ---- */
-function KanbanView({ T, board, onChange, gam }) {
+/* Jira-style task metadata shared by Kanban (and other views) */
+const STATUSES = [
+  { id: "todo", label: "To Do", color: "#64748b" },
+  { id: "in-progress", label: "In Progress", color: "#3b82f6" },
+  { id: "in-review", label: "In Review", color: "#a855f7" },
+  { id: "done", label: "Done", color: "#10b981" },
+];
+
+function dueMeta(due, done) {
+  if (!due) return null;
+  const d = new Date(due + "T00:00:00");
+  if (isNaN(d.getTime())) return { label: due, color: "#64748b" };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d - today) / 86400000);
+  const fmt = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (done) return { label: fmt, color: "#94a3b8" };
+  if (diff < 0) return { label: `Overdue · ${fmt}`, color: "#ef4444" };
+  if (diff === 0) return { label: "Today", color: "#f59e0b" };
+  if (diff <= 2) return { label: `${fmt} · soon`, color: "#f59e0b" };
+  return { label: fmt, color: "#64748b" };
+}
+
+function MentionEditor({ T, mentions, onChange }) {
+  const [v, setV] = useState("");
+  function add() {
+    const name = v.replace(/^@/, "").trim();
+    if (name && !mentions.includes(name)) onChange([...mentions, name]);
+    setV("");
+  }
+  return (
+    <div>
+      <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><MessageCircle className="w-3 h-3" /> Mention people</div>
+      {mentions.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {mentions.map((m) => (
+            <span key={m} className={`inline-flex items-center gap-1 ${T.badge} ${T.text} px-2 py-0.5 rounded-full text-xs`}>
+              @{m}
+              <button onClick={() => onChange(mentions.filter((x) => x !== m))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input value={v} onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+        placeholder="@name, then Enter"
+        className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
+    </div>
+  );
+}
+
+function KanbanView({ T, board, onChange, gam, allBoards = [], onMoveCard }) {
   const [editing, setEditing] = useState(null); // {colId, cardId}
   function addCard(colId, title) {
     if (!title) return;
     gam.grant("first_card");
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false, description: "", priority: "medium", due: "", tags: [] }] } : c) });
+      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false, description: "", priority: "medium", due: "", status: "todo", assignee: "", mentions: [], tags: [] }] } : c) });
   }
   function toggle(colId, cardId) {
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, done: !k.done } : k) } : c) });
+      ? { ...c, cards: c.cards.map((k) => k.id === cardId
+          ? { ...k, done: !k.done, status: !k.done ? "done" : (k.status === "done" ? "todo" : k.status) } : k) } : c) });
     gam.setCompleted((n) => n + 1);
   }
   function updateCard(colId, cardId, patch) {
+    const p = { ...patch };
+    if (p.status === "done") p.done = true;
+    else if (p.status) p.done = false; // moving out of Done un-completes
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, ...patch } : k) } : c) });
+      ? { ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, ...p } : k) } : c) });
   }
   function deleteCard(colId, cardId) {
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
@@ -970,20 +1134,35 @@ function KanbanView({ T, board, onChange, gam }) {
                   </button>
                   <div className="min-w-0 flex-1">
                     <div className={c.done ? "line-through opacity-60" : ""}>{c.title}</div>
-                    {(c.due || c.priority) && (
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
-                        {c.priority && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: PRIO[c.priority] + "22", color: PRIO[c.priority] }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIO[c.priority] }} /> {c.priority}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                      {c.status && c.status !== "todo" && (() => {
+                        const s = STATUSES.find((x) => x.id === c.status);
+                        return s ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: s.color + "22", color: s.color }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} /> {s.label}
                           </span>
-                        )}
-                        {c.due && (
-                          <span className={`inline-flex items-center gap-1 ${T.muted}`}>
-                            <Clock className="w-3 h-3" /> {c.due}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                        ) : null;
+                      })()}
+                      {c.priority && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: PRIO[c.priority] + "22", color: PRIO[c.priority] }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIO[c.priority] }} /> {c.priority}
+                        </span>
+                      )}
+                      {c.due && (() => {
+                        const d = dueMeta(c.due, c.done);
+                        return <span className="inline-flex items-center gap-1 font-medium" style={{ color: d.color }}><Clock className="w-3 h-3" /> {d.label}</span>;
+                      })()}
+                      {c.assignee && (
+                        <span className="inline-flex items-center gap-1" title={`Assigned to ${c.assignee}`}>
+                          <span className="w-4 h-4 rounded-full bg-[#00a884] text-white grid place-items-center text-[8px] font-bold">{c.assignee[0]?.toUpperCase()}</span>
+                        </span>
+                      )}
+                      {c.mentions?.length > 0 && (
+                        <span className={`inline-flex items-center gap-0.5 ${T.muted}`} title={c.mentions.map((m) => "@" + m).join(" ")}>
+                          <MessageCircle className="w-3 h-3" />{c.mentions.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -998,6 +1177,9 @@ function KanbanView({ T, board, onChange, gam }) {
       <CardModal
         T={T}
         card={openCard}
+        allBoards={allBoards}
+        currentBoardId={board.id}
+        onMove={onMoveCard}
         onClose={() => setEditing(null)}
         onSave={(patch) => updateCard(editing.colId, editing.cardId, patch)}
         onDelete={() => { deleteCard(editing.colId, editing.cardId); setEditing(null); }}
@@ -1006,7 +1188,8 @@ function KanbanView({ T, board, onChange, gam }) {
   );
 }
 
-function CardModal({ T, card, onClose, onSave, onDelete }) {
+function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], currentBoardId, onMove }) {
+  const moveTargets = allBoards.filter((b) => b.id !== currentBoardId && ["kanban", "checklist", "calendar"].includes(b.type));
   return (
     <AnimatePresence>
       {card && (
@@ -1021,7 +1204,7 @@ function CardModal({ T, card, onClose, onSave, onDelete }) {
             exit={{ y: 30, opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 220, damping: 22 }}
             onClick={(e) => e.stopPropagation()}
-            className={`${T.panel} w-full max-w-lg p-6 relative`}
+            className={`${T.panel} w-full max-w-lg p-6 relative max-h-[88vh] overflow-y-auto thin-scroll`}
           >
             <button onClick={onClose} className={`${T.muted} absolute top-3 right-3 hover:text-red-500`}>
               <X className="w-5 h-5" />
@@ -1062,6 +1245,36 @@ function CardModal({ T, card, onClose, onSave, onDelete }) {
                   </div>
                 </div>
               </div>
+              <div>
+                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><ListChecks className="w-3 h-3" /> Status</div>
+                <div className="flex gap-1 flex-wrap">
+                  {STATUSES.map((s) => (
+                    <button key={s.id} onClick={() => onSave({ status: s.id })}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${card.status === s.id ? "text-white" : T.chipIdle}`}
+                      style={card.status === s.id ? { background: s.color } : undefined}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><User className="w-3 h-3" /> Assignee</div>
+                <input value={card.assignee || ""} onChange={(e) => onSave({ assignee: e.target.value })}
+                  placeholder="Name (pulls from WhatsApp contacts once connected)"
+                  className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
+              </div>
+              <MentionEditor T={T} mentions={card.mentions || []} onChange={(m) => onSave({ mentions: m })} />
+              {onMove && moveTargets.length > 0 && (
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><GitBranch className="w-3 h-3" /> Move to board</div>
+                  <select value=""
+                    onChange={(e) => { if (e.target.value) { onMove(card, currentBoardId, e.target.value); onClose(); } }}
+                    className={`${T.input} w-full rounded-lg px-3 py-2 text-sm cursor-pointer`}>
+                    <option value="">Keep on this board…</option>
+                    {moveTargets.map((b) => <option key={b.id} value={b.id}>{b.name} ({BOARD_TYPES.find((t) => t.id === b.type)?.name})</option>)}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="flex justify-between mt-5">
               <button onClick={onDelete} className="text-red-500 text-sm flex items-center gap-1 hover:underline">
@@ -1199,21 +1412,13 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
   const todayIso = new Date().toISOString().slice(0, 10);
   const COLORS = ["#25d366", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
   function isoFor(d) { return new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10); }
-  function eventsOn(d) { return board.events.filter((e) => e.date === isoFor(d)).sort((a,b)=> (a.time||"").localeCompare(b.time||"")); }
-  // Cross-board sync: collect any task/card with a dueDate from other boards
+  function eventsOn(d) { return (board.events || []).filter((e) => e.date === isoFor(d)).sort((a,b)=> (a.time||"").localeCompare(b.time||"")); }
+  // Cross-board sync: any dated task from every other board appears here.
   const crossRefs = useMemo(() => {
     const out = [];
     for (const b of allBoards) {
       if (!b || b.id === board.id) continue;
-      if (b.type === "kanban" && b.columns) {
-        for (const c of b.columns) for (const k of c.cards) if (k.due) out.push({ date: k.due, title: k.title, source: b.name });
-      } else if (b.type === "table" && b.rows) {
-        // skip — table rows have no schema-typed due field
-      } else if (b.type === "roadmap" && b.items) {
-        for (const it of b.items) if (it.due) out.push({ date: it.due, title: it.title, source: b.name });
-      } else if (b.type === "checklist" && b.items) {
-        for (const it of b.items) if (it.due) out.push({ date: it.due, title: it.title, source: b.name });
-      }
+      for (const it of boardItems(b)) if (it.due) out.push({ date: it.due, title: it.title, source: b.name });
     }
     return out;
   }, [allBoards, board.id]);
@@ -1221,11 +1426,12 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
   function openNew(d) { setDraftDate(isoFor(d)); setEditing({ id: null, date: isoFor(d), title: "", time: "", color: COLORS[0], note: "" }); }
   function saveEvent(ev) {
     if (!ev.title) { setEditing(null); return; }
-    if (ev.id) onChange({ ...board, events: board.events.map(e => e.id === ev.id ? ev : e) });
-    else onChange({ ...board, events: [...board.events, { ...ev, id: crypto.randomUUID() }] });
+    const events = board.events || [];
+    if (ev.id) onChange({ ...board, events: events.map(e => e.id === ev.id ? ev : e) });
+    else onChange({ ...board, events: [...events, { ...ev, id: crypto.randomUUID() }] });
     setEditing(null);
   }
-  function deleteEvent(id) { onChange({ ...board, events: board.events.filter(e => e.id !== id) }); setEditing(null); }
+  function deleteEvent(id) { onChange({ ...board, events: (board.events || []).filter(e => e.id !== id) }); setEditing(null); }
   function go(delta) {
     let m = cursor.m + delta, y = cursor.y;
     if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
@@ -1234,11 +1440,13 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
   function goToday() { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }); }
 
   const upcoming = useMemo(() => {
-    return [...board.events]
+    const own = (board.events || []).map((e) => ({ ...e, kind: "event" }));
+    const refs = crossRefs.map((r, i) => ({ id: "ref" + i, title: r.title, date: r.date, source: r.source, kind: "ref" }));
+    return [...own, ...refs]
       .filter((e) => e.date >= todayIso)
       .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))
-      .slice(0, 5);
-  }, [board.events]);
+      .slice(0, 8);
+  }, [board.events, crossRefs]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
@@ -1301,15 +1509,24 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
         </div>
         {upcoming.length === 0 && <div className={`text-sm ${T.muted}`}>Nothing scheduled. Click any day to add an event.</div>}
         <div className="space-y-2">
-          {upcoming.map((e) => (
-            <button key={e.id} onClick={() => setEditing(e)} className={`${T.panelSoft} w-full p-2 text-left flex items-start gap-2`}>
-              <div className="w-1 self-stretch rounded-full" style={{ background: e.color || "#25d366" }} />
-              <div className="min-w-0 flex-1">
-                <div className={`text-sm font-medium ${T.text} truncate`}>{e.title}</div>
-                <div className={`text-[11px] ${T.muted}`}>{e.date}{e.time ? ` · ${e.time}` : ""}</div>
-              </div>
-            </button>
-          ))}
+          {upcoming.map((e) => {
+            const isRef = e.kind === "ref";
+            const inner = (
+              <>
+                <div className="w-1 self-stretch rounded-full" style={{ background: e.color || "#25d366" }} />
+                <div className="min-w-0 flex-1">
+                  <div className={`text-sm font-medium ${T.text} truncate`}>{e.title}</div>
+                  <div className={`text-[11px] ${T.muted} truncate`}>{e.date}{e.time ? ` · ${e.time}` : ""}{isRef ? ` · ${e.source}` : ""}</div>
+                </div>
+                {isRef && <span className="text-[10px] opacity-60 shrink-0">↗</span>}
+              </>
+            );
+            return isRef ? (
+              <div key={e.id} title={`From ${e.source}`} className={`${T.panelSoft} w-full p-2 text-left flex items-start gap-2`}>{inner}</div>
+            ) : (
+              <button key={e.id} onClick={() => setEditing(e)} className={`${T.panelSoft} w-full p-2 text-left flex items-start gap-2`}>{inner}</button>
+            );
+          })}
         </div>
       </div>
 
@@ -1582,10 +1799,10 @@ function ChatsView({ T, wallpaper }) {
             </div>
             <div className={`${T.topbar} p-2 flex items-center gap-2`}>
               <input value={draft} onChange={(e)=>setDraft(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&handleSend()}
-                disabled={session.status !== "ready"}
-                placeholder={session.status === "ready" ? "Type a message" : "Connect WhatsApp to send"}
+                disabled={session.status !== "ready" || session.readOnly}
+                placeholder={session.readOnly ? "Read-only mode — sending disabled" : session.status === "ready" ? "Type a message" : "Connect WhatsApp to send"}
                 className={`${T.input} flex-1 rounded-full px-4 py-2 text-sm disabled:opacity-60`} />
-              <button onClick={handleSend} disabled={sending || session.status !== "ready"}
+              <button onClick={handleSend} disabled={sending || session.status !== "ready" || session.readOnly}
                 className={`${T.btn} w-10 h-10 rounded-full grid place-items-center disabled:opacity-50`}><Send className="w-4 h-4" /></button>
             </div>
           </>
@@ -2063,20 +2280,13 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
 
           {section === "pet" && (
             <div className={`${T.panel} p-5 space-y-3`}>
-              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🐾 Pet companion</div></div>
-              <ToggleRow T={T} label="Enable pet companion" hint="A floating buddy that cheers you on." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
+              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🦊 Fox companion</div></div>
+              <ToggleRow T={T} label="Enable pet companion" hint="A floating fox that cheers you on." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
               {settings.petEnabled && (
                 <>
-                  <div className={`text-xs ${T.muted} mt-2`}>Style</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(PET_PRESETS).map(([k, p]) => (
-                      <button key={k} onClick={() => set({ petChoice: k })}
-                        className={`${T.panelSoft} p-3 text-center ${settings.petChoice === k ? "ring-2 ring-[#25d366]" : ""}`}>
-                        <div className="text-3xl">{p.emoji}</div>
-                        <div className={`mt-1 text-sm font-medium ${T.text}`}>{p.name}</div>
-                        <div className={`text-[11px] ${T.muted}`}>{p.blurb}</div>
-                      </button>
-                    ))}
+                  <div className={`${T.panelSoft} p-3 text-xs ${T.muted} flex items-center gap-2`}>
+                    <Info className="w-4 h-4 shrink-0" />
+                    <span>Showing a drawn fox. Save your exact fox image as <code>public/pets/fox.png</code> to use it pixel-perfect.</span>
                   </div>
                   <div className={`text-xs ${T.muted} mt-2`}>Aura color</div>
                   <div className="flex gap-2 flex-wrap">
@@ -2137,7 +2347,7 @@ const DEFAULT_SETTINGS = {
   notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
   readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
   wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
-  petEnabled: false, petChoice: "cat", petAura: "#25d366", petSide: "right",
+  petEnabled: true, petAura: "#25d366", petSide: "right",
   compact: false,
 };
 
@@ -2149,47 +2359,172 @@ const PET_PRESETS = {
 const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff"];
 
 /* ====================================================================== */
-/* WebPet — floating, draggable, celebrate-aware companion                  */
+/* Hatchling sprite pet — atlas-driven, with a drawn placeholder fallback   */
 /* ====================================================================== */
-function WebPet({ choice, aura, side: initialSide }) {
+/* Layout matches /hatch-pet/scripts: 1536×1872 atlas, 192×208 frames,      */
+/* 8 cols × 9 rows, one animation state per row, ~10fps.                    */
+const HATCH_MANIFEST = {
+  src: "/pets/hatchling/atlas.webp",
+  frameW: 192, frameH: 208, cols: 8, rows: 9, fps: 10,
+  states: {
+    idle:            { row: 0, frames: 8 },
+    "running-right": { row: 1, frames: 8 },
+    "running-left":  { row: 2, frames: 8 },
+    waving:          { row: 3, frames: 8 },
+    jumping:         { row: 4, frames: 8 },
+    failed:          { row: 5, frames: 8 },
+    waiting:         { row: 6, frames: 8 },
+    running:         { row: 7, frames: 8 },
+    review:          { row: 8, frames: 8 },
+  },
+};
+
+/* Drop your exact fox image here for a pixel-perfect pet; until then the drawn
+   fox below is shown. */
+const FOX_IMG = "/pets/fox.png";
+
+function petMotion(anim) {
+  if (anim === "jumping") return { animate: { y: [0, -16, 0] }, transition: { duration: 0.5, repeat: 2, ease: "easeOut" } };
+  if (anim === "waving") return { animate: { rotate: [0, -7, 7, -7, 0] }, transition: { duration: 0.9 } };
+  return { animate: { y: [0, -3, 0] }, transition: { duration: 2.6, repeat: Infinity, ease: "easeInOut" } };
+}
+
+/* Drawn chibi fox fallback (resembles the reference; for the exact art drop
+   public/pets/fox.png). */
+function FoxPlaceholder({ anim, w, h, aura }) {
+  const m = petMotion(anim);
+  return (
+    <motion.div animate={m.animate} transition={m.transition} style={{ width: w, height: h, filter: `drop-shadow(0 0 10px ${aura})` }}>
+      <svg viewBox="0 0 120 120" width={w} height={h} aria-hidden="true">
+        {/* tail */}
+        <path d="M84 64 C112 60 116 92 102 106 C92 116 78 110 80 98 C90 96 96 84 88 76 C84 72 82 68 84 64 Z" fill="#ef6d2e" stroke="#4a3526" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M92 98 C100 100 100 110 90 112 C86 106 87 101 92 98 Z" fill="#fff1dd" stroke="#4a3526" strokeWidth="2.5" strokeLinejoin="round" />
+        {/* body */}
+        <ellipse cx="54" cy="92" rx="32" ry="24" fill="#f6863b" stroke="#4a3526" strokeWidth="3" />
+        <ellipse cx="54" cy="92" rx="16" ry="18" fill="#fff1dd" />
+        {/* paws */}
+        <ellipse cx="40" cy="110" rx="8" ry="6" fill="#f6863b" stroke="#4a3526" strokeWidth="2.5" />
+        <ellipse cx="68" cy="110" rx="8" ry="6" fill="#f6863b" stroke="#4a3526" strokeWidth="2.5" />
+        {/* head */}
+        <path d="M20 50 C20 28 40 20 56 20 C72 20 92 28 92 50 C92 72 76 82 56 82 C36 82 20 72 20 50 Z" fill="#f6863b" stroke="#4a3526" strokeWidth="3" />
+        {/* ears */}
+        <path d="M22 44 L14 12 L42 32 Z" fill="#f6863b" stroke="#4a3526" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M90 44 L98 12 L70 32 Z" fill="#f6863b" stroke="#4a3526" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M24 38 L19 20 L34 31 Z" fill="#fff1dd" />
+        <path d="M88 38 L93 20 L78 31 Z" fill="#fff1dd" />
+        {/* white muzzle */}
+        <ellipse cx="56" cy="66" rx="23" ry="14" fill="#fff1dd" />
+        {/* blush */}
+        <ellipse cx="33" cy="62" rx="6" ry="4" fill="#ff9bb0" opacity="0.85" />
+        <ellipse cx="79" cy="62" rx="6" ry="4" fill="#ff9bb0" opacity="0.85" />
+        {/* eyes */}
+        <ellipse cx="42" cy="54" rx="7.5" ry="9" fill="#3b2417" />
+        <ellipse cx="70" cy="54" rx="7.5" ry="9" fill="#3b2417" />
+        <circle cx="44" cy="51" r="2.2" fill="#fff" />
+        <circle cx="72" cy="51" r="2.2" fill="#fff" />
+        <circle cx="40" cy="57" r="1.3" fill="#fff" />
+        <circle cx="68" cy="57" r="1.3" fill="#fff" />
+        {/* nose + smile */}
+        <path d="M53 64 L59 64 L56 68 Z" fill="#4a3526" />
+        <path d="M56 68 q-5 6 -10 3 M56 68 q5 6 10 3" fill="none" stroke="#4a3526" strokeWidth="2" strokeLinecap="round" />
+        {/* forehead marks */}
+        <path d="M40 36 l3 6 M72 36 l-3 6" stroke="#ef6d2e" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    </motion.div>
+  );
+}
+
+function SpritePet({ aura, side: initialSide }) {
   const [pos, setPos] = useState(() => {
     try { const v = JSON.parse(localStorage.getItem("wp_pet_pos") || "null"); if (v) return v; } catch {}
-    return { side: initialSide || "right", y: typeof window !== "undefined" ? window.innerHeight - 160 : 400 };
+    return { side: initialSide || "right", y: typeof window !== "undefined" ? window.innerHeight - 170 : 400 };
   });
   const [bubble, setBubble] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [celebrating, setCelebrating] = useState(false);
   const [wiggle, setWiggle] = useState(false);
+  const [manifest, setManifest] = useState(HATCH_MANIFEST);
+  const [atlasReady, setAtlasReady] = useState(false);
+  const [foxReady, setFoxReady] = useState(false);
+  const [anim, setAnim] = useState("idle");
+  const [frame, setFrame] = useState(0);
   const dragRef = useRef({ active: false, dy: 0 });
 
-  // snooze gate
-  const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; }})();
-  if (snoozeUntil > Date.now()) return null;
+  // optional manifest override (frame counts / fps) shipped next to the atlas
+  useEffect(() => {
+    let alive = true;
+    fetch(HATCH_MANIFEST.src.replace(/atlas\.webp$/, "atlas.json"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((m) => { if (alive && m) setManifest((cur) => ({ ...cur, ...m, states: { ...cur.states, ...(m.states || {}) } })); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
+  // detect the real atlas; fall back to the drawn placeholder if absent
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const img = new window.Image();
+    img.onload = () => setAtlasReady(true);
+    img.onerror = () => setAtlasReady(false);
+    img.src = manifest.src;
+  }, [manifest.src]);
+
+  // your exact fox image (public/pets/fox.png) takes priority if present
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const img = new window.Image();
+    img.onload = () => setFoxReady(true);
+    img.onerror = () => setFoxReady(false);
+    img.src = FOX_IMG;
+  }, []);
+
+  // celebrate hook (dispatch `webpet:celebrate` anywhere to trigger)
   useEffect(() => {
     const onCelebrate = (e) => {
       const msg = e?.detail?.message
-        || (e?.detail?.type === "first_visit" ? `Hi! I'm ${PET_PRESETS[choice].name}. I'll keep you company! 👋`
+        || (e?.detail?.type === "first_visit" ? "Hi! I'm your fox. I'll keep you company! 🦊"
           : e?.detail?.type === "streak_milestone" ? "Days in a row — you're unstoppable! 🔥"
           : "Yes!! You did that!! 🎉");
       setBubble(msg);
-      setCelebrating(true);
-      setTimeout(() => setCelebrating(false), 1800);
+      setAnim("jumping");
       setTimeout(() => setBubble(null), 4000);
     };
     window.addEventListener("webpet:celebrate", onCelebrate);
     const onKey = (e) => { if (e.key === "Escape") setBubble(null); };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("webpet:celebrate", onCelebrate); window.removeEventListener("keydown", onKey); };
-  }, [choice]);
+    // gentle first greeting
+    const greet = setTimeout(() => { setBubble("Hi! I'm your fox 🦊"); setAnim("waving"); setTimeout(() => setBubble(null), 3500); }, 1200);
+    return () => { window.removeEventListener("webpet:celebrate", onCelebrate); window.removeEventListener("keydown", onKey); clearTimeout(greet); };
+  }, []);
 
+  // frame ticker
+  useEffect(() => {
+    const st = manifest.states[anim] || manifest.states.idle;
+    const fc = Math.max(1, st.frames || 1);
+    setFrame(0);
+    const id = setInterval(() => setFrame((f) => (f + 1) % fc), 1000 / (manifest.fps || 10));
+    return () => clearInterval(id);
+  }, [anim, manifest]);
+
+  // transient states return to idle; idle occasionally waves for liveliness
+  useEffect(() => {
+    if (anim === "jumping" || anim === "waving") {
+      const t = setTimeout(() => setAnim("idle"), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [anim]);
+  useEffect(() => {
+    const id = setInterval(() => setAnim((cur) => (cur === "idle" && Math.random() < 0.4 ? "waving" : cur)), 9000);
+    return () => clearInterval(id);
+  }, []);
+
+  // drag to reposition (snaps to nearest side, persists)
   useEffect(() => {
     function onMove(e) {
       if (!dragRef.current.active) return;
       const cy = e.touches ? e.touches[0].clientY : e.clientY;
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
-      setPos((p) => ({ ...p, y: Math.max(20, Math.min(window.innerHeight - 120, cy - dragRef.current.dy)), _x: cx }));
+      setPos((p) => ({ ...p, y: Math.max(20, Math.min(window.innerHeight - 130, cy - dragRef.current.dy)), _x: cx }));
     }
     function onUp() {
       if (!dragRef.current.active) return;
@@ -2213,13 +2548,30 @@ function WebPet({ choice, aura, side: initialSide }) {
     };
   }, []);
 
-  const preset = PET_PRESETS[choice] || PET_PRESETS.cat;
-  const sizeClass = "w-16 h-16 sm:w-24 sm:h-24";
+  const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; } })();
+
+  // display geometry
+  const displayH = 116;
+  const scale = displayH / manifest.frameH;
+  const fw = Math.round(manifest.frameW * scale);
+  const fh = Math.round(manifest.frameH * scale);
+  const st = manifest.states[anim] || manifest.states.idle;
+  const spriteStyle = {
+    width: fw,
+    height: fh,
+    backgroundImage: `url(${manifest.src})`,
+    backgroundRepeat: "no-repeat",
+    backgroundSize: `${manifest.cols * fw}px ${manifest.rows * fh}px`,
+    backgroundPosition: `${-frame * fw}px ${-st.row * fh}px`,
+    filter: `drop-shadow(0 0 10px ${aura})`,
+  };
 
   function startDrag(e) {
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
     dragRef.current = { active: true, dy: cy - pos.y };
   }
+
+  if (snoozeUntil > Date.now()) return null;
 
   if (collapsed) {
     return (
@@ -2227,38 +2579,46 @@ function WebPet({ choice, aura, side: initialSide }) {
         onClick={() => setCollapsed(false)}
         style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }}
         className="w-9 h-9 rounded-full bg-white shadow-lg border border-black/10 grid place-items-center text-base">
-        🐾
+        🦊
       </button>
     );
   }
 
   return (
-    <div
-      style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }}
-      className="select-none"
-    >
+    <div style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }} className="select-none">
       {bubble && (
         <div className="mb-2 max-w-[220px] rounded-xl bg-white text-[#1E293B] text-xs px-3 py-2 shadow-lg border border-black/10 cursor-pointer"
           onClick={() => setBubble(null)}>{bubble}</div>
       )}
-      <div
+      <motion.div
         role="img"
-        aria-label={`${preset.name}, your wellness companion`}
+        aria-label="Hatchling, your companion"
         onMouseDown={startDrag}
         onTouchStart={startDrag}
-        onClick={() => { setWiggle(true); setTimeout(() => setWiggle(false), 320); }}
+        onClick={() => { setWiggle(true); setAnim("jumping"); setTimeout(() => setWiggle(false), 320); }}
         onDoubleClick={() => setCollapsed(true)}
-        onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o)=>!o); }}
-        className={`${sizeClass} grid place-items-center rounded-full bg-white/70 backdrop-blur cursor-grab active:cursor-grabbing transition-transform ${wiggle ? "scale-110" : ""} ${celebrating ? "animate-bounce" : ""}`}
-        style={{ filter: `drop-shadow(0 0 10px ${aura})` }}
+        onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o) => !o); }}
+        animate={{ scale: wiggle ? 1.12 : 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 14 }}
+        className="cursor-grab active:cursor-grabbing"
       >
-        <span className="text-3xl sm:text-5xl">{preset.emoji}</span>
-      </div>
+        {foxReady ? (
+          (() => { const m = petMotion(anim); return (
+            <motion.img src={FOX_IMG} width={fh} height={fh} draggable={false} alt="pet"
+              animate={m.animate} transition={m.transition}
+              style={{ width: fh, height: fh, objectFit: "contain", filter: `drop-shadow(0 0 8px ${aura})` }} />
+          ); })()
+        ) : atlasReady ? (
+          <div style={spriteStyle} />
+        ) : (
+          <FoxPlaceholder anim={anim} w={fw} h={fh} aura={aura} />
+        )}
+      </motion.div>
       {menuOpen && (
         <div className={`absolute ${pos.side === "right" ? "right-0" : "left-0"} mt-2 w-44 rounded-lg bg-white border border-black/10 shadow-xl text-sm overflow-hidden`}>
           <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent("webpet:open-settings")); }}
             className="w-full text-left px-3 py-2 hover:bg-black/5">Settings</button>
-          <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30*60*1000)); } catch {}; window.location.reload(); }}
+          <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30 * 60 * 1000)); } catch {} window.location.reload(); }}
             className="w-full text-left px-3 py-2 hover:bg-black/5">Snooze 30 min</button>
           <button onClick={() => { setMenuOpen(false); setCollapsed(true); }}
             className="w-full text-left px-3 py-2 hover:bg-black/5">Hide</button>
@@ -2373,8 +2733,8 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
         })}
       </nav>
 
-      {/* WebPet floats over everything */}
-      {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} />}
+      {/* Hatchling sprite pet floats over everything */}
+      {settings.petEnabled && <SpritePet aura={settings.petAura} side={settings.petSide} />}
     </div>
   );
 }

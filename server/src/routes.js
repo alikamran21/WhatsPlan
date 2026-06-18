@@ -20,13 +20,24 @@ export function registerRoutes(app, store, wa) {
   api.post("/session/logout", wrap(async (req, res) => res.json(await wa.logout())));
 
   /* ── Chats & messages ────────────────────────────────────────────── */
+  // All WhatsApp groups (unfiltered) — use this to discover names/ids to put
+  // in WATCH_CHATS. Requires the session to be linked (status: ready).
+  api.get("/groups", wrap(async (req, res) => res.json(await wa.listGroups())));
+
   api.get("/chats", wrap(async (req, res) =>
     res.json(await store.list("chats", { orderBy: "timestamp", dir: "desc" })),
   ));
 
   api.get("/chats/:id/messages", wrap(async (req, res) => {
-    const all = await store.list("messages", { orderBy: "timestamp", dir: "asc" });
-    res.json(all.filter((m) => m.chatId === req.params.id));
+    const chatId = req.params.id;
+    // Live history from WhatsApp (shows existing conversation), fall back to
+    // the locally stored/classified messages if the live fetch is unavailable.
+    let msgs = await wa.fetchMessages(chatId, 40).catch(() => []);
+    if (!msgs.length) {
+      const all = await store.list("messages", { orderBy: "timestamp", dir: "asc" });
+      msgs = all.filter((m) => m.chatId === chatId);
+    }
+    res.json(msgs);
   }));
 
   api.post("/chats/:id/messages", wrap(async (req, res) => {

@@ -17,7 +17,9 @@ export type SessionState = {
   qr: string | null;
   me: string | null;
   meName?: string | null;
+  readOnly?: boolean;
 };
+export type Group = { id: string; name: string; participants: number; watched: boolean };
 export type Chat = { id: string; name: string; isGroup: boolean; lastMessage: string; timestamp: number; unread?: number };
 export type Message = { id: string; chatId: string; chatName: string; isGroup: boolean; from: string; fromName: string; body: string; timestamp: number; fromMe: boolean };
 export type Meeting = { id: string; chatId: string; chatName: string; author: string; title: string; datetime: string; link: string; location: string; incomplete: boolean; sourceText: string; confidence: number; createdAt: number };
@@ -47,6 +49,7 @@ export const api = {
   startSession: (): Promise<SessionState> => http("/session/start", { method: "POST" }),
   logout: (): Promise<SessionState> => http("/session/logout", { method: "POST" }),
 
+  getGroups: (): Promise<Group[]> => http("/groups"),
   getChats: (): Promise<Chat[]> => http("/chats"),
   getMessages: (chatId: string): Promise<Message[]> => http(`/chats/${encodeURIComponent(chatId)}/messages`),
   sendMessage: (chatId: string, text: string) =>
