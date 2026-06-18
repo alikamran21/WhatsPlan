@@ -1,0 +1,39 @@
+import http from "node:http";
+import express from "express";
+import cors from "cors";
+import { Server } from "socket.io";
+import { config } from "./config.js";
+import { createStore } from "./store/index.js";
+import { WhatsAppService } from "./whatsapp/client.js";
+import { registerRoutes } from "./routes.js";
+
+const app = express();
+app.use(cors({ origin: config.corsOrigin }));
+app.use(express.json());
+
+const store = await createStore();
+const wa = new WhatsAppService(store);
+
+app.get("/health", (req, res) => res.json({ ok: true, ...wa.getState() }));
+registerRoutes(app, store, wa);
+
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: config.corsOrigin } });
+
+io.on("connection", (socket) => {
+  // Send current state to a freshly-connected client.
+  socket.emit("session", wa.getState());
+});
+
+// Forward WhatsApp service events to all connected clients.
+for (const event of ["status", "qr", "message", "item"]) {
+  wa.on(event, (payload) => io.emit(event, payload));
+}
+
+server.listen(config.port, () => {
+  console.log(`\nWhatsPlan backend → http://localhost:${config.port}`);
+  console.log(`  Classifier: ${config.gemini.enabled ? `Gemini (${config.gemini.model})` : "heuristic fallback"}`);
+  console.log(`  Storage:    ${config.firebaseEnabled ? "Firestore" : "local file (data/store.json)"}`);
+  console.log(`  Watching:   ${config.watchChats.length ? config.watchChats.join(", ") : "all group chats"}`);
+  console.log(`\nPOST /api/session/start to link a device, then scan the QR.\n`);
+});

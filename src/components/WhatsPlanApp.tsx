@@ -11,7 +11,9 @@ import {
   Mail, KeyRound, ArrowRight, Bell, Shield, Database, Keyboard, HelpCircle,
   Globe, Type, Wallpaper, Smartphone, Volume2, Eye, Download, Info,
   Clock, Tag, AlignLeft, Zap, MessageCircle, RefreshCw, Share2, Copy, Link as LinkIcon,
+  WifiOff, ExternalLink, Pin,
 } from "lucide-react";
+import { useSession, useChats, useMessages, usePlanner, useBoards, useSyncedDoc, api } from "@/lib/api";
 
 /* ====================================================================== */
 /* THEMES — every theme uses the WhatsApp green palette                   */
@@ -447,6 +449,7 @@ function Login({ onLogin }) {
   const [err, setErr] = useState("");
   const [qrToken, setQrToken] = useState(() => crypto.randomUUID());
   const [secondsLeft, setSecondsLeft] = useState(45);
+  const wa = useSession(); // real WhatsApp linking when the backend is up
 
   // refresh QR like WhatsApp Web
   useEffect(() => {
@@ -568,26 +571,38 @@ function Login({ onLogin }) {
           </div>
 
           <motion.div
-            key={qrToken}
+            key={wa.online ? `${wa.status}-${wa.qr ? "q" : "n"}` : qrToken}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
             className="relative p-4 bg-white rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,128,105,0.45)] border border-[#d1f0e1]"
           >
-            <QRCodeSVG
-              value={`whatsplan://link?token=${qrToken}`}
-              size={208}
-              fgColor="#0b3a32"
-              bgColor="#ffffff"
-              level="H"
-              imageSettings={{ src: "", height: 0, width: 0, excavate: false }}
-            />
-            {/* center logo overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="bg-white rounded-xl p-1.5 shadow-md">
-                <WPLogo size={36} />
+            {wa.online && wa.status === "ready" ? (
+              <div className="w-[208px] h-[208px] flex flex-col items-center justify-center text-center gap-2">
+                <div className="w-16 h-16 rounded-full bg-[#25d366] grid place-items-center"><Check className="w-8 h-8 text-white" /></div>
+                <div className="font-semibold text-[#0b3a32]">WhatsApp linked</div>
+                <div className="text-xs text-[#54656f] break-all px-2">{wa.me}</div>
               </div>
-            </div>
+            ) : wa.online && wa.qr ? (
+              <img src={wa.qr} alt="WhatsApp link QR" width={208} height={208} className="rounded-lg" />
+            ) : (
+              <>
+                <QRCodeSVG
+                  value={`whatsplan://link?token=${qrToken}`}
+                  size={208}
+                  fgColor="#0b3a32"
+                  bgColor="#ffffff"
+                  level="H"
+                  imageSettings={{ src: "", height: 0, width: 0, excavate: false }}
+                />
+                {/* center logo overlay */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-white rounded-xl p-1.5 shadow-md">
+                    <WPLogo size={36} />
+                  </div>
+                </div>
+              </>
+            )}
             {/* corner accents */}
             {[
               "top-1 left-1 border-t-2 border-l-2",
@@ -599,12 +614,26 @@ function Login({ onLogin }) {
             ))}
           </motion.div>
 
-          <button
-            onClick={() => { setQrToken(crypto.randomUUID()); setSecondsLeft(45); }}
-            className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh code · {secondsLeft}s
-          </button>
+          {wa.online ? (
+            wa.status === "ready" ? (
+              <div className="mt-4 text-xs text-[#008069] font-medium">Device linked — you're all set.</div>
+            ) : wa.status === "qr" ? (
+              <button onClick={wa.start} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium">
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh code
+              </button>
+            ) : (
+              <button onClick={wa.start} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium">
+                <Smartphone className="w-3.5 h-3.5" /> {wa.status === "initializing" || wa.status === "authenticated" ? "Starting…" : "Generate link code"}
+              </button>
+            )
+          ) : (
+            <button
+              onClick={() => { setQrToken(crypto.randomUUID()); setSecondsLeft(45); }}
+              className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Refresh code · {secondsLeft}s
+            </button>
+          )}
 
           <div className="mt-5 grid grid-cols-3 gap-2 text-[10px] text-[#54656f] max-w-xs">
             {[
@@ -702,42 +731,68 @@ const ALL_BADGES = [
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 function diffDays(a, b) { return Math.round((new Date(a) - new Date(b)) / 86400000); }
 
-function useGamification() {
-  const [earned, setEarned] = useLocal("wp_badges", []);
-  const [themesTried, setThemesTried] = useLocal("wp_themes_tried", []);
-  const [streak, setStreak] = useLocal("wp_streak", { count: 0, last: null });
-  const [completed, setCompleted] = useLocal("wp_completed", 0);
+const GAM_DEFAULTS = { earned: [], themesTried: [], streak: { count: 0, last: null }, completed: 0 };
 
-  // streak tick on mount (after hydrate)
-  useEffect(() => {
-    const t = todayKey();
-    if (streak?.last === t) return;
-    let next;
-    if (!streak?.last) next = { count: 1, last: t };
-    else {
-      const d = diffDays(t, streak.last);
-      next = d === 1 ? { count: (streak.count || 0) + 1, last: t } : { count: 1, last: t };
-    }
-    setStreak(next);
-    // eslint-disable-next-line
-  }, []);
+/* Read gamification from localStorage, migrating the legacy per-key storage
+   (wp_badges / wp_themes_tried / wp_streak / wp_completed) into one blob. */
+function readGamification() {
+  if (typeof window === "undefined") return GAM_DEFAULTS;
+  try {
+    const combined = localStorage.getItem("wp_gamification");
+    if (combined) return { ...GAM_DEFAULTS, ...JSON.parse(combined) };
+    return {
+      earned: JSON.parse(localStorage.getItem("wp_badges") || "[]"),
+      themesTried: JSON.parse(localStorage.getItem("wp_themes_tried") || "[]"),
+      streak: JSON.parse(localStorage.getItem("wp_streak") || "null") || { count: 0, last: null },
+      completed: JSON.parse(localStorage.getItem("wp_completed") || "0"),
+    };
+  } catch { return GAM_DEFAULTS; }
+}
+
+function useGamification() {
+  const [state, setState, loaded] = useSyncedDoc("gamification", readGamification());
+  const earned = state.earned || [];
+  const themesTried = state.themesTried || [];
+  const streak = state.streak || { count: 0, last: null };
+  const completed = state.completed || 0;
 
   function grant(id) {
-    setEarned((cur) => (cur.includes(id) ? cur : [...cur, id]));
+    setState((s) => (s.earned?.includes(id) ? s : { ...s, earned: [...(s.earned || []), id] }));
   }
   function tryTheme(k) {
-    setThemesTried((cur) => (cur.includes(k) ? cur : [...cur, k]));
+    setState((s) => (s.themesTried?.includes(k) ? s : { ...s, themesTried: [...(s.themesTried || []), k] }));
+  }
+  function setCompleted(updater) {
+    setState((s) => ({ ...s, completed: typeof updater === "function" ? updater(s.completed || 0) : updater }));
   }
 
+  // streak tick once state has hydrated
+  useEffect(() => {
+    if (!loaded) return;
+    setState((s) => {
+      const t = todayKey();
+      if (s.streak?.last === t) return s;
+      let next;
+      if (!s.streak?.last) next = { count: 1, last: t };
+      else {
+        const d = diffDays(t, s.streak.last);
+        next = d === 1 ? { count: (s.streak.count || 0) + 1, last: t } : { count: 1, last: t };
+      }
+      return { ...s, streak: next };
+    });
+    // eslint-disable-next-line
+  }, [loaded]);
+
   // derived grants
-  useEffect(() => { grant("first_login"); /* eslint-disable-next-line */ }, []);
-  useEffect(() => { if (themesTried.length >= 3) grant("theme_explorer"); }, [themesTried]);
+  useEffect(() => { if (loaded) grant("first_login"); /* eslint-disable-next-line */ }, [loaded]);
+  useEffect(() => { if (themesTried.length >= 3) grant("theme_explorer"); /* eslint-disable-next-line */ }, [themesTried]);
   useEffect(() => {
     if ((streak?.count || 0) >= 3) grant("streak_3");
     if ((streak?.count || 0) >= 7) grant("streak_7");
     if ((streak?.count || 0) >= 30) grant("streak_30");
+    /* eslint-disable-next-line */
   }, [streak]);
-  useEffect(() => { if (completed >= 10) grant("ten_cards"); }, [completed]);
+  useEffect(() => { if (completed >= 10) grant("ten_cards"); /* eslint-disable-next-line */ }, [completed]);
 
   return { earned, grant, streak, tryTheme, themesTried, completed, setCompleted };
 }
@@ -1495,23 +1550,77 @@ function NotesView({ T, board, onChange }) {
 /* Chats / Calls placeholder views                                          */
 /* ====================================================================== */
 /* ====================================================================== */
-/* ChatsView — backend-ready shell, no mock data                            */
+/* Shared helpers                                                          */
+/* ====================================================================== */
+function fmtTime(ts) {
+  if (!ts) return "";
+  try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+  catch { return ""; }
+}
+function fmtDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/* Connection banner shared by Chats and Planner */
+function ConnectBanner({ T, session }) {
+  if (!session.online) {
+    return (
+      <div className="rounded-lg p-3 bg-amber-500/15 border border-amber-500/40 flex items-center gap-2">
+        <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className={`text-xs font-semibold ${T.text}`}>Backend offline</div>
+          <div className={`text-[11px] ${T.muted}`}>Start the server: <code>cd server &amp;&amp; npm run dev</code></div>
+        </div>
+      </div>
+    );
+  }
+  if (session.status === "ready") return null;
+  return (
+    <div className="rounded-lg p-3 bg-[#25d366]/15 border border-[#25d366]/40 flex items-center gap-2">
+      <ShieldCheck className="w-4 h-4 text-[#128c7e] shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className={`text-xs font-semibold ${T.text}`}>
+          {session.status === "qr" ? "Scan to link WhatsApp" : session.status === "initializing" || session.status === "authenticated" ? "Connecting…" : "WhatsApp not linked"}
+        </div>
+        <div className={`text-[11px] ${T.muted}`}>
+          {session.status === "qr" ? "Open WhatsApp → Linked devices → scan the code." : "Link your account to capture chats."}
+        </div>
+      </div>
+      {session.status !== "qr" && (
+        <button onClick={session.start} className={`${T.btn} text-xs px-3 py-1 rounded-md font-medium shrink-0`}>Connect</button>
+      )}
+    </div>
+  );
+}
+
+/* ====================================================================== */
+/* ChatsView — wired to the WhatsPlan backend                               */
 /* ====================================================================== */
 function ChatsView({ T, wallpaper }) {
-  // TODO: replace connected state with real WhatsApp session check
-  const [connected, setConnected] = useState(false);
-  // TODO: backend hook — populate from WhatsApp Web API
-  const [chats, setChats] = useState([]);
+  const session = useSession();
+  const chats = useChats();
   const [selectedChat, setSelectedChat] = useState(null);
-  // TODO: backend hook — populate per-thread messages
-  const [messages, setMessages] = useState([]);
+  const messages = useMessages(selectedChat?.id);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
+  const [sending, setSending] = useState(false);
 
-  function handleSend() {
-    if (!draft.trim()) return;
-    // TODO: send message via WhatsApp backend
+  const filtered = useMemo(
+    () => chats.filter((c) => (c.name || "").toLowerCase().includes(query.toLowerCase())),
+    [chats, query],
+  );
+
+  async function handleSend() {
+    const text = draft.trim();
+    if (!text || !selectedChat) return;
     setDraft("");
+    setSending(true);
+    try { await api.sendMessage(selectedChat.id, text); }
+    catch { setDraft(text); }
+    finally { setSending(false); }
   }
 
   return (
@@ -1523,28 +1632,42 @@ function ChatsView({ T, wallpaper }) {
             <Search className="w-4 h-4 opacity-60" />
             <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
           </div>
-          {!connected && (
-            <div className="rounded-lg p-3 bg-[#25d366]/15 border border-[#25d366]/40 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#128c7e] shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className={`text-xs font-semibold ${T.text}`}>Backend required</div>
-                <div className={`text-[11px] ${T.muted}`}>Connect WhatsApp to see your chats.</div>
-              </div>
-              <button onClick={()=>setConnected(true)} className={`${T.btn} text-xs px-3 py-1 rounded-md font-medium shrink-0`}>Connect</button>
+          {session.status === "qr" && session.qr && (
+            <div className={`${T.panelSoft} p-3 flex flex-col items-center gap-2`}>
+              <img src={session.qr} alt="Link WhatsApp" className="w-40 h-40 rounded-lg bg-white p-1" />
+              <div className={`text-[11px] ${T.muted} text-center`}>WhatsApp → Linked devices → scan</div>
             </div>
           )}
+          <ConnectBanner T={T} session={session} />
         </div>
         <div className="flex-1 overflow-auto thin-scroll">
-          {chats.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="p-6 text-center">
               <svg viewBox="0 0 64 64" className="w-16 h-16 mx-auto mb-3 opacity-60"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M20 28h24M20 36h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-              <div className={`font-semibold ${T.text}`}>No chats yet</div>
-              <div className={`text-sm ${T.muted} mt-1`}>Your WhatsApp conversations will appear here once connected.</div>
+              <div className={`font-semibold ${T.text}`}>{query ? "No matches" : "No chats yet"}</div>
+              <div className={`text-sm ${T.muted} mt-1`}>Your WhatsApp conversations appear here once connected.</div>
             </div>
           ) : (
             <div>
-              {/* TODO: render ChatListItem with real chat data */}
-              {chats.map(() => null)}
+              {filtered.map((c) => {
+                const active = selectedChat?.id === c.id;
+                return (
+                  <button key={c.id} onClick={() => setSelectedChat(c)}
+                    className={`w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-current/5 ${active ? T.chipActive : "hover:bg-current/5"}`}>
+                    <div className={`${T.accent} w-10 h-10 rounded-full grid place-items-center font-semibold shrink-0`}>
+                      {(c.name || "?").slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`font-medium truncate ${active ? "" : T.text}`}>{c.name}</span>
+                        <span className={`text-[10px] shrink-0 ${active ? "" : T.muted}`}>{fmtTime(c.timestamp)}</span>
+                      </div>
+                      <div className={`text-xs truncate ${active ? "" : T.muted}`}>{c.lastMessage || (c.isGroup ? "Group" : "")}</div>
+                    </div>
+                    {c.unread ? <span className="bg-[#25d366] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0">{c.unread}</span> : null}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1557,13 +1680,16 @@ function ChatsView({ T, wallpaper }) {
             <div>
               <div className="inline-block"><WPLogo size={80} /></div>
               <div className={`mt-4 font-[var(--font-display)] text-xl font-bold ${T.text}`}>Select a conversation</div>
-              <div className={`${T.muted} text-sm mt-1 max-w-sm`}>Your chats will appear once WhatsApp is connected.</div>
+              <div className={`${T.muted} text-sm mt-1 max-w-sm`}>Your chats appear once WhatsApp is connected.</div>
             </div>
           </div>
         ) : (
           <>
             <header className={`${T.topbar} h-14 flex items-center px-3 gap-3`}>
               <button onClick={()=>setSelectedChat(null)} className={`${T.btnGhost} px-2 py-1 rounded-md text-sm`}>←</button>
+              <div className={`${T.accent} w-9 h-9 rounded-full grid place-items-center font-semibold shrink-0`}>
+                {(selectedChat.name || "?").slice(0, 1).toUpperCase()}
+              </div>
               <div className={`font-semibold ${T.text} truncate`}>{selectedChat?.name || "Chat"}</div>
             </header>
             <div className="flex-1 overflow-auto p-4">
@@ -1573,15 +1699,27 @@ function ChatsView({ T, wallpaper }) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* TODO: render message bubbles with real message data */}
-                  {messages.map(() => null)}
+                  {messages.map((m) => (
+                    <div key={m.id} className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}>
+                      <div className={`${m.fromMe ? T.bubbleMe : T.bubbleThem} max-w-[75%] rounded-lg px-3 py-2 text-sm`}>
+                        {!m.fromMe && selectedChat?.isGroup && (
+                          <div className="text-[11px] font-semibold opacity-70 mb-0.5">{m.fromName || m.from}</div>
+                        )}
+                        <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                        <div className="text-[10px] opacity-60 text-right mt-1">{fmtTime(m.timestamp)}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
             <div className={`${T.topbar} p-2 flex items-center gap-2`}>
               <input value={draft} onChange={(e)=>setDraft(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&handleSend()}
-                placeholder="Type a message" className={`${T.input} flex-1 rounded-full px-4 py-2 text-sm`} />
-              <button onClick={handleSend} className={`${T.btn} w-10 h-10 rounded-full grid place-items-center`}><Send className="w-4 h-4" /></button>
+                disabled={session.status !== "ready"}
+                placeholder={session.status === "ready" ? "Type a message" : "Connect WhatsApp to send"}
+                className={`${T.input} flex-1 rounded-full px-4 py-2 text-sm disabled:opacity-60`} />
+              <button onClick={handleSend} disabled={sending || session.status !== "ready"}
+                className={`${T.btn} w-10 h-10 rounded-full grid place-items-center disabled:opacity-50`}><Send className="w-4 h-4" /></button>
             </div>
           </>
         )}
@@ -1594,9 +1732,9 @@ function ChatsView({ T, wallpaper }) {
 /* CallsView — backend-ready shell                                          */
 /* ====================================================================== */
 function CallsView({ T }) {
-  // TODO: wire to real connection state
-  const connected = false;
-  // TODO: backend hook — populate call history
+  const { status } = useSession();
+  const connected = status === "ready";
+  // Call history isn't exposed by whatsapp-web.js; reflect connection only.
   const [calls, setCalls] = useState([]);
   const [filter, setFilter] = useState("all");
   const filters = ["all", "missed", "incoming", "outgoing"];
@@ -1631,6 +1769,164 @@ function CallsView({ T }) {
         aria-label="New call">
         <Phone className="w-5 h-5" />
       </button>
+    </div>
+  );
+}
+
+/* ====================================================================== */
+/* Planner view — AI-sorted Meetings / Tasks / Announcements                */
+/* ====================================================================== */
+const PRIO_COLORS = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
+
+function SourceLine({ T, item }) {
+  return (
+    <div className={`mt-2 text-[11px] ${T.muted} flex items-center gap-1.5 flex-wrap`}>
+      <MessageCircle className="w-3 h-3 shrink-0" />
+      <span className="font-medium">{item.author || "Someone"}</span>
+      <span>in {item.chatName}</span>
+      {typeof item.confidence === "number" && (
+        <span className={`${T.badge} px-1.5 py-0.5 rounded-full`}>{Math.round(item.confidence * 100)}%</span>
+      )}
+    </div>
+  );
+}
+
+function PlannerView({ T }) {
+  const session = useSession();
+  const { meetings, tasks, announcements, patchItem, deleteItem } = usePlanner();
+  const [sub, setSub] = useState("meetings");
+
+  const sortedAnns = useMemo(
+    () => [...announcements].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)),
+    [announcements],
+  );
+
+  const subs = [
+    { id: "meetings", label: "Meetings", icon: CalendarIcon, count: meetings.length },
+    { id: "tasks", label: "Tasks", icon: ListChecks, count: tasks.length },
+    { id: "announcements", label: "Announcements", icon: StickyNote, count: announcements.length },
+  ];
+
+  return (
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto w-full">
+      <div className="mb-4">
+        <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text}`}>Planner</h2>
+        <p className={`${T.muted} text-sm`}>Meetings, tasks and announcements the agent pulled from your group chats.</p>
+      </div>
+
+      <div className="mb-4"><ConnectBanner T={T} session={session} /></div>
+
+      {/* sub-tabs */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {subs.map((s) => {
+          const Icon = s.icon;
+          const active = sub === s.id;
+          return (
+            <button key={s.id} onClick={() => setSub(s.id)}
+              className={`${active ? T.chipActive : T.chipIdle} px-3 py-1.5 rounded-full text-sm font-medium inline-flex items-center gap-2`}>
+              <Icon className="w-4 h-4" /> {s.label}
+              <span className={`${T.badge} text-[10px] px-1.5 py-0.5 rounded-full`}>{s.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* MEETINGS */}
+      {sub === "meetings" && (
+        <div className="space-y-3">
+          {meetings.length === 0 && <EmptyState T={T} icon={CalendarIcon} label="No meetings captured yet" hint="Scheduling messages with a time or call link land here." />}
+          {meetings.map((m) => (
+            <div key={m.id} className={`${T.card} p-4`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className={`font-semibold ${T.text} flex items-center gap-2 flex-wrap`}>
+                    {m.title}
+                    {m.incomplete && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600">Incomplete draft</span>}
+                  </div>
+                  <div className={`mt-1 text-sm ${T.muted} flex flex-col gap-1`}>
+                    <label className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      {m.datetime ? (
+                        <span className={T.text}>{fmtDateTime(m.datetime)}</span>
+                      ) : (
+                        <input type="datetime-local" onChange={(e) => patchItem("meetings", m.id, { datetime: new Date(e.target.value).toISOString(), incomplete: false })}
+                          className={`${T.input} rounded px-2 py-1 text-xs`} />
+                      )}
+                    </label>
+                    {m.location && <div className="flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> {m.location}</div>}
+                    {m.link && (
+                      <a href={m.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[#128c7e] hover:underline w-fit">
+                        <ExternalLink className="w-3.5 h-3.5" /> Join link
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => deleteItem("meetings", m.id)} className={`${T.muted} hover:text-red-500 shrink-0`}><Trash2 className="w-4 h-4" /></button>
+              </div>
+              <SourceLine T={T} item={m} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* TASKS */}
+      {sub === "tasks" && (
+        <div className="space-y-2">
+          {tasks.length === 0 && <EmptyState T={T} icon={ListChecks} label="No tasks captured yet" hint="Action items and assignments from chats show up here." />}
+          {tasks.map((t) => (
+            <div key={t.id} className={`${T.card} p-3 flex items-start gap-3`}>
+              <button onClick={() => patchItem("tasks", t.id, { done: !t.done })}
+                className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center shrink-0 ${t.done ? "bg-[#25d366] border-[#25d366]" : "border-current opacity-40"}`}>
+                {t.done && <Check className="w-3.5 h-3.5 text-white" />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className={`text-sm ${T.text} ${t.done ? "line-through opacity-60" : ""}`}>{t.description}</div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: PRIO_COLORS[t.priority] + "22", color: PRIO_COLORS[t.priority] }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIO_COLORS[t.priority] }} /> {t.priority}
+                  </span>
+                  {t.assignee && <span className={`${T.badge} px-1.5 py-0.5 rounded-full ${T.text}`}><User className="w-3 h-3 inline -mt-0.5 mr-0.5" />{t.assignee}</span>}
+                  {t.due && <span className={`${T.badge} px-1.5 py-0.5 rounded-full ${T.text}`}><Clock className="w-3 h-3 inline -mt-0.5 mr-0.5" />{fmtDateTime(t.due)}</span>}
+                </div>
+                <SourceLine T={T} item={t} />
+              </div>
+              <button onClick={() => deleteItem("tasks", t.id)} className={`${T.muted} hover:text-red-500 shrink-0`}><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ANNOUNCEMENTS */}
+      {sub === "announcements" && (
+        <div className="space-y-3">
+          {sortedAnns.length === 0 && <EmptyState T={T} icon={StickyNote} label="No announcements yet" hint="Important broadcasts get parked here so they aren't buried." />}
+          {sortedAnns.map((a) => (
+            <div key={a.id} className={`${T.card} p-4 ${a.pinned ? "ring-2 ring-[#25d366]/40" : ""}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className={`text-sm ${T.text} whitespace-pre-wrap break-words min-w-0 flex-1`}>{a.text}</div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => patchItem("announcements", a.id, { pinned: !a.pinned })}
+                    className={`${a.pinned ? "text-[#25d366]" : T.muted} hover:text-[#25d366]`} title={a.pinned ? "Unpin" : "Pin"}>
+                    <Pin className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => deleteItem("announcements", a.id)} className={`${T.muted} hover:text-red-500`}><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+              <SourceLine T={T} item={a} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ T, icon: Icon, label, hint }) {
+  return (
+    <div className={`${T.panel} p-10 text-center`}>
+      <Icon className={`w-10 h-10 mx-auto mb-3 ${T.muted}`} />
+      <div className={`font-semibold ${T.text}`}>{label}</div>
+      <div className={`${T.muted} text-sm mt-1`}>{hint}</div>
     </div>
   );
 }
@@ -1959,11 +2255,12 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
 /* Main app shell                                                           */
 /* ====================================================================== */
 const TABS = [
-  { id: "chats",   label: "Chats",   icon: MessageSquare },
-  { id: "calls",   label: "Calls",   icon: Phone },
-  { id: "boards",  label: "Boards",  icon: Kanban },
-  { id: "badges",  label: "Badges",  icon: Award },
-  { id: "settings",label: "Settings",icon: SettingsIcon },
+  { id: "chats",   label: "Chats",    icon: MessageSquare },
+  { id: "calls",   label: "Calls",    icon: Phone },
+  { id: "planner", label: "Planner",  icon: ListChecks },
+  { id: "boards",  label: "Boards",   icon: Kanban },
+  { id: "badges",  label: "Badges",   icon: Award },
+  { id: "settings",label: "Settings", icon: SettingsIcon },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -2105,7 +2402,7 @@ function WebPet({ choice, aura, side: initialSide }) {
 function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
   const T = THEMES[themeKey] || THEMES.default;
   const [tab, setTab] = useState("boards");
-  const [boards, setBoards] = useLocal("wp_boards", []);
+  const [boards, setBoards] = useBoards();
   const [settings, setSettings] = useLocal("wp_settings", DEFAULT_SETTINGS);
   const [glowColor, setGlowColor] = useLocal("wp_glow", "#25d366");
 
@@ -2182,6 +2479,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
             >
               {tab === "chats"    && <ChatsView   T={T} wallpaper={settings.wallpaper} />}
               {tab === "calls"    && <CallsView   T={T} />}
+              {tab === "planner"  && <PlannerView T={T} />}
               {tab === "boards"   && <BoardsView  T={T} boards={boards} setBoards={setBoards} gam={gam} />}
               {tab === "badges"   && <BadgesView  T={T} gam={gam} />}
               {tab === "settings" && <SettingsView T={T} user={user} themeKey={themeKey} setTheme={setTheme} onLogout={onLogout} gam={gam}
@@ -2192,7 +2490,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
       </main>
 
       {/* Mobile bottom nav (≤768px) */}
-      <nav className={`${T.sidebar} md:hidden fixed bottom-0 left-0 right-0 h-14 grid grid-cols-4 z-30 border-t`}>
+      <nav className={`${T.sidebar} md:hidden fixed bottom-0 left-0 right-0 h-14 grid z-30 border-t`} style={{ gridTemplateColumns: `repeat(${BOTTOM_TABS.length}, minmax(0,1fr))` }}>
         {BOTTOM_TABS.map((t) => {
           const Icon = t.icon;
           const active = tab === t.id;
