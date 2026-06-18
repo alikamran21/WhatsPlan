@@ -238,7 +238,7 @@ function useLocal(key, initial) {
 /* ====================================================================== */
 /* WhatsApp logo                                                           */
 /* ====================================================================== */
-/* WPLogo — bold speech-bubble + task grid with accent dot */
+/* WPLogo — sharp speech-bubble + task grid, visible on all themes */
 function WPLogo({ size = 64 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-label="WhatsPlan">
@@ -248,31 +248,28 @@ function WPLogo({ size = 64 }) {
           <stop offset="50%" stopColor="#1eba5a" />
           <stop offset="100%" stopColor="#0d6b4a" />
         </linearGradient>
-        <filter id="wps">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.25" />
-        </filter>
       </defs>
-      {/* main rounded-square body */}
-      <rect x="6" y="4" width="84" height="76" rx="18" ry="18" fill="url(#wpg)" />
-      {/* speech-bubble tail */}
-      <polygon points="16,76 10,94 38,76" fill="url(#wpg)" />
-      {/* 2×2 task tiles with drop shadow */}
-      <g filter="url(#wps)">
-        <rect x="18" y="16" width="27" height="25" rx="5" fill="#fff" />
-        <rect x="51" y="16" width="27" height="25" rx="5" fill="#fff" opacity="0.75" />
-        <rect x="18" y="47" width="27" height="25" rx="5" fill="#fff" opacity="0.75" />
-        <rect x="51" y="47" width="27" height="25" rx="5" fill="#fff" />
-      </g>
-      {/* bold checkmarks */}
-      <path d="M24 29 l6 6 l11 -12" fill="none" stroke="#0d6b4a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M57 60 l6 6 l11 -12" fill="none" stroke="#0d6b4a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      {/* lines in empty tiles (like task text) */}
-      <rect x="56" y="24" width="16" height="3" rx="1.5" fill="#0d6b4a" opacity="0.5" />
-      <rect x="56" y="30" width="11" height="3" rx="1.5" fill="#0d6b4a" opacity="0.3" />
-      <rect x="23" y="55" width="16" height="3" rx="1.5" fill="#0d6b4a" opacity="0.5" />
-      <rect x="23" y="61" width="11" height="3" rx="1.5" fill="#0d6b4a" opacity="0.3" />
+      {/* dark outline for visibility on all themes */}
+      <rect x="5" y="3" width="86" height="78" rx="12" ry="12" fill="none" stroke="#0a3d2a" strokeWidth="2.5" />
+      {/* main body */}
+      <rect x="6" y="4" width="84" height="76" rx="11" ry="11" fill="url(#wpg)" />
+      {/* speech-bubble tail with outline */}
+      <polygon points="16,76 10,94 38,76" fill="url(#wpg)" stroke="#0a3d2a" strokeWidth="2" strokeLinejoin="miter" />
+      {/* 2×2 task tiles — sharp corners */}
+      <rect x="18" y="16" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" />
+      <rect x="51" y="16" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" opacity="0.85" />
+      <rect x="18" y="47" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" opacity="0.85" />
+      <rect x="51" y="47" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" />
+      {/* sharp checkmarks */}
+      <path d="M24 29 l6 6 l11 -12" fill="none" stroke="#0a3d2a" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
+      <path d="M57 60 l6 6 l11 -12" fill="none" stroke="#0a3d2a" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
+      {/* task text lines */}
+      <rect x="56" y="24" width="16" height="3" rx="1" fill="#0a3d2a" opacity="0.5" />
+      <rect x="56" y="30" width="11" height="3" rx="1" fill="#0a3d2a" opacity="0.3" />
+      <rect x="23" y="55" width="16" height="3" rx="1" fill="#0a3d2a" opacity="0.5" />
+      <rect x="23" y="61" width="11" height="3" rx="1" fill="#0a3d2a" opacity="0.3" />
       {/* notification accent dot */}
-      <circle cx="84" cy="10" r="10" fill="#ff3b3b" />
+      <circle cx="84" cy="10" r="10" fill="#ff3b3b" stroke="#0a3d2a" strokeWidth="1.5" />
       <text x="84" y="14" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="bold" fontFamily="sans-serif">!</text>
     </svg>
   );
