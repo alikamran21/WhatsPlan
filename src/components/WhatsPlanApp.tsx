@@ -242,37 +242,36 @@ function useLocal(key, initial) {
 /* ====================================================================== */
 /* WPLogo — sharp speech-bubble + task grid, visible on all themes */
 function WPLogo({ size = 64 }) {
+  const dark = "#0a1f14";
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="WhatsPlan">
-      <defs>
-        <linearGradient id="wpg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#25d366" />
-          <stop offset="50%" stopColor="#1eba5a" />
-          <stop offset="100%" stopColor="#0d6b4a" />
-        </linearGradient>
-      </defs>
-      {/* dark outline for visibility on all themes */}
-      <rect x="5" y="3" width="86" height="78" rx="12" ry="12" fill="none" stroke="#0a3d2a" strokeWidth="2.5" />
-      {/* main body */}
-      <rect x="6" y="4" width="84" height="76" rx="11" ry="11" fill="url(#wpg)" />
-      {/* speech-bubble tail with outline */}
-      <polygon points="16,76 10,94 38,76" fill="url(#wpg)" stroke="#0a3d2a" strokeWidth="2" strokeLinejoin="miter" />
-      {/* 2×2 task tiles — sharp corners */}
-      <rect x="18" y="16" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" />
-      <rect x="51" y="16" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" opacity="0.85" />
-      <rect x="18" y="47" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" opacity="0.85" />
-      <rect x="51" y="47" width="27" height="25" rx="3" fill="#fff" stroke="#0a3d2a" strokeWidth="1.2" />
-      {/* sharp checkmarks */}
-      <path d="M24 29 l6 6 l11 -12" fill="none" stroke="#0a3d2a" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
-      <path d="M57 60 l6 6 l11 -12" fill="none" stroke="#0a3d2a" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
-      {/* task text lines */}
-      <rect x="56" y="24" width="16" height="3" rx="1" fill="#0a3d2a" opacity="0.5" />
-      <rect x="56" y="30" width="11" height="3" rx="1" fill="#0a3d2a" opacity="0.3" />
-      <rect x="23" y="55" width="16" height="3" rx="1" fill="#0a3d2a" opacity="0.5" />
-      <rect x="23" y="61" width="11" height="3" rx="1" fill="#0a3d2a" opacity="0.3" />
-      {/* notification accent dot */}
-      <circle cx="84" cy="10" r="10" fill="#ff3b3b" stroke="#0a3d2a" strokeWidth="1.5" />
-      <text x="84" y="14" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="bold" fontFamily="sans-serif">!</text>
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="WhatsPlan" shapeRendering="crispEdges">
+      {/* dark outer border */}
+      <rect x="6" y="6" width="88" height="88" rx="14" fill={dark} />
+      {/* flat solid green body */}
+      <rect x="11" y="11" width="78" height="78" rx="11" fill="#25d366" />
+      {/* top + bottom flat accent strips */}
+      <rect x="11" y="11" width="78" height="8" fill="#1aab52" />
+      <rect x="11" y="81" width="78" height="8" fill="#1aab52" />
+      {/* 2×2 grid of sharp white task tiles */}
+      <rect x="21" y="27" width="26" height="22" rx="0" fill="#fff" />
+      <rect x="53" y="27" width="26" height="22" rx="0" fill="#fff" />
+      <rect x="21" y="51" width="26" height="22" rx="0" fill="#fff" />
+      <rect x="53" y="51" width="26" height="22" rx="0" fill="#fff" />
+      {/* pixel checkmark — top-left tile */}
+      <rect x="27" y="38" width="4" height="4" fill={dark} />
+      <rect x="31" y="42" width="4" height="4" fill={dark} />
+      <rect x="35" y="38" width="4" height="4" fill={dark} />
+      <rect x="39" y="34" width="4" height="4" fill={dark} />
+      {/* pixel checkmark — bottom-right tile */}
+      <rect x="59" y="62" width="4" height="4" fill={dark} />
+      <rect x="63" y="66" width="4" height="4" fill={dark} />
+      <rect x="67" y="62" width="4" height="4" fill={dark} />
+      <rect x="71" y="58" width="4" height="4" fill={dark} />
+      {/* pixel task lines on the other two tiles */}
+      <rect x="57" y="34" width="18" height="4" fill={dark} opacity="0.45" />
+      <rect x="57" y="40" width="12" height="4" fill={dark} opacity="0.3" />
+      <rect x="25" y="58" width="18" height="4" fill={dark} opacity="0.45" />
+      <rect x="25" y="64" width="12" height="4" fill={dark} opacity="0.3" />
     </svg>
   );
 }
@@ -683,7 +682,7 @@ function useGamification() {
   }, [streak]);
   useEffect(() => { if (completed >= 10) grant("ten_cards"); /* eslint-disable-next-line */ }, [completed]);
 
-  return { earned, grant, streak, tryTheme, themesTried, completed, setCompleted };
+  return { earned, grant, streak, tryTheme, themesTried, completed, setCompleted, completedToday: completed };
 }
 
 /* ====================================================================== */
@@ -796,7 +795,15 @@ function boardToText(board) {
 function BoardsView({ T, boards, setBoards, gam }) {
   const [openId, setOpenId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [seedType, setSeedType] = useState("kanban");
+  const [switchingBoard, setSwitchingBoard] = useState(null);
   const open = boards.find((b) => b.id === openId);
+
+  // Change a board's style in place, preserving its tasks (keeps id + createdAt).
+  function switchBoardType(boardId, newType) {
+    setBoards(boards.map((b) => (b.id === boardId ? convertBoard(b, newType) : b)));
+    setSwitchingBoard(null);
+  }
 
   function create(type, name) {
     const b = newBoard(type, name || "Untitled board");
@@ -827,7 +834,7 @@ function BoardsView({ T, boards, setBoards, gam }) {
   }
 
   if (open) {
-    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} allBoards={boards} onMoveCard={moveCard} />;
+    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} allBoards={boards} onMoveCard={moveCard} onSwitchType={(t) => switchBoardType(open.id, t)} />;
   }
 
   return (
@@ -853,7 +860,27 @@ function BoardsView({ T, boards, setBoards, gam }) {
         </div>
       )}
 
-      {creating && <BoardCreator T={T} onCancel={() => setCreating(false)} onCreate={create} />}
+      {creating && <BoardCreator T={T} defaultType={seedType} onCancel={() => setCreating(false)} onCreate={create} />}
+
+      {!creating && (
+        <div className="mb-4">
+          <div className={`text-xs uppercase tracking-wider ${T.muted} mb-2`}>Double-click a style to start immediately</div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {BOARD_TYPES.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button key={t.id}
+                  onClick={() => { setSeedType(t.id); setCreating(true); }}
+                  onDoubleClick={() => { setSeedType(t.id); setCreating(true); }}
+                  className={`${T.chipIdle} rounded-lg p-3 flex flex-col items-center gap-1 transition hover:scale-105`}>
+                  <Icon className="w-5 h-5" />
+                  <span className="text-[11px] font-medium">{t.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {boards.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
@@ -861,19 +888,44 @@ function BoardsView({ T, boards, setBoards, gam }) {
             const meta = BOARD_TYPES.find((t) => t.id === b.type);
             const Icon = meta?.icon || Kanban;
             return (
-              <div key={b.id} className={`${T.card} p-4 cursor-pointer group`} onClick={() => setOpenId(b.id)}>
+              <div key={b.id} className={`${T.card} p-4 cursor-pointer group relative`} onClick={() => setOpenId(b.id)}>
                 <div className="flex items-start justify-between">
                   <div className={`${T.accent} p-2 rounded-lg`}><Icon className="w-4 h-4" /></div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); remove(b.id); }}
-                    className={`${T.muted} opacity-0 group-hover:opacity-100 transition hover:text-red-500`}
-                    aria-label="Delete board"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSwitchingBoard(switchingBoard === b.id ? null : b.id); }}
+                      className={`${T.muted} opacity-0 group-hover:opacity-100 transition hover:text-[#25d366]`}
+                      aria-label="Change style"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); remove(b.id); }}
+                      className={`${T.muted} opacity-0 group-hover:opacity-100 transition hover:text-red-500`}
+                      aria-label="Delete board"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className={`mt-3 font-semibold ${T.text}`}>{b.name}</div>
                 <div className={`text-xs ${T.muted} mt-0.5`}>{meta?.name}</div>
+                {switchingBoard === b.id && (
+                  <div onClick={(e) => e.stopPropagation()} className={`absolute inset-x-2 top-14 z-10 ${T.panel} p-2 shadow-xl`}>
+                    <div className={`text-[10px] uppercase tracking-wider ${T.muted} mb-1 px-1`}>Change style (keeps tasks)</div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {BOARD_TYPES.map((t) => {
+                        const TIcon = t.icon;
+                        return (
+                          <button key={t.id} onClick={(e) => { e.stopPropagation(); switchBoardType(b.id, t.id); }}
+                            className={`${b.type === t.id ? T.chipActive : T.chipIdle} rounded-md p-2 flex flex-col items-center gap-0.5 text-[10px] font-medium`}>
+                            <TIcon className="w-4 h-4" /> {t.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -883,9 +935,10 @@ function BoardsView({ T, boards, setBoards, gam }) {
   );
 }
 
-function BoardCreator({ T, onCancel, onCreate }) {
-  const [type, setType] = useState("kanban");
+function BoardCreator({ T, onCancel, onCreate, defaultType = "kanban" }) {
+  const [type, setType] = useState(defaultType);
   const [name, setName] = useState("");
+  useEffect(() => { setType(defaultType); }, [defaultType]);
   return (
     <div className={`${T.panel} p-5 mb-6`}>
       <div className={`font-semibold ${T.text} mb-3`}>New board</div>
@@ -919,8 +972,9 @@ function BoardCreator({ T, onCancel, onCreate }) {
   );
 }
 
-function BoardDetail({ T, board, onBack, onChange, gam, allBoards, onMoveCard }) {
+function BoardDetail({ T, board, onBack, onChange, gam, allBoards, onMoveCard, onSwitchType }) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [switchingType, setSwitchingType] = useState(false);
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 mb-4 sm:flex sm:flex-wrap sm:justify-between">
@@ -936,14 +990,25 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards, onMoveCard })
           <button onClick={() => setShareOpen(true)} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-1.5`}>
             <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">Share</span>
           </button>
-          <select value={board.type}
-            onChange={(e) => onChange(convertBoard(board, e.target.value))}
-            title="Change board style (keeps your tasks)"
-            className={`${T.input} rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer`}>
-            {BOARD_TYPES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+          <button onClick={() => setSwitchingType((v) => !v)} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-1.5`}>
+            <RefreshCw className="w-4 h-4" /> <span className="hidden sm:inline">Style</span>
+          </button>
         </div>
       </div>
+
+      {switchingType && (
+        <div className={`${T.panel} p-3 mb-4 flex flex-wrap gap-2`}>
+          {BOARD_TYPES.map((t) => {
+            const TIcon = t.icon;
+            return (
+              <button key={t.id} onClick={() => { onSwitchType?.(t.id); setSwitchingType(false); }}
+                className={`${board.type === t.id ? T.chipActive : T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5`}>
+                <TIcon className="w-3.5 h-3.5" /> {t.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {board.type === "kanban"    && <KanbanView    T={T} board={board} onChange={onChange} gam={gam} allBoards={allBoards} onMoveCard={onMoveCard} />}
       {board.type === "table"     && <TableView     T={T} board={board} onChange={onChange} gam={gam} />}
@@ -959,61 +1024,88 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards, onMoveCard })
 
 /* ---- Board share modal (frontend shell) ---- */
 function ShareModal({ T, open, onClose, board }) {
+  const [tab, setTab] = useState("link");
   const [copied, setCopied] = useState(false);
-  const [copiedText, setCopiedText] = useState(false);
   const [email, setEmail] = useState("");
   const [visibility, setVisibility] = useState("private");
-  const link = `https://whatsplan.app/board/${board.id}`;
+  const boardUrl = `https://whatsplan.app/board/${board.id}`;
+  const waText = `Check out my WhatsPlan board "${board.name}": ${boardUrl}`;
   function copy() {
-    try { navigator.clipboard?.writeText(link); } catch {}
+    try { navigator.clipboard?.writeText(boardUrl); } catch {}
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
-  function copyText() {
-    try { navigator.clipboard?.writeText(boardToText(board)); } catch {}
-    setCopiedText(true); setTimeout(() => setCopiedText(false), 2000);
-  }
-  function invite() {
-    // TODO: POST /api/boards/:id/share with emails array
-    setEmail("");
-  }
+  const TABS = [
+    { id: "link", label: "🔗 Link" },
+    { id: "whatsapp", label: "💬 WhatsApp" },
+    { id: "qr", label: "QR Code" },
+  ];
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
           <motion.div onClick={(e)=>e.stopPropagation()}
             initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-            className={`${T.panel} w-full max-w-md p-5 relative`}>
+            transition={{ type: "spring", stiffness: 240, damping: 24 }}
+            className={`${T.panel} w-full max-w-md p-5 relative max-h-[90vh] overflow-y-auto thin-scroll`}>
             <button onClick={onClose} className={`${T.muted} absolute top-3 right-3`}><X className="w-5 h-5" /></button>
             <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Share2 className="w-4 h-4" /> Share board</div>
-            <div className="flex gap-2 mb-2">
-              <input disabled value={link} className={`${T.input} flex-1 rounded-lg px-3 py-2 text-xs opacity-80`} />
-              <button onClick={copy} className={`${T.btn} px-3 py-2 rounded-lg text-xs font-medium inline-flex items-center gap-1`}>
-                <Copy className="w-3.5 h-3.5" />{copied ? "Copied!" : "Copy link"}
-              </button>
-            </div>
-            <div className={`text-[11px] ${T.muted} mb-3`}>The link goes live once the backend is connected.</div>
 
-            <button onClick={copyText} className={`${T.btnGhost} w-full px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center gap-2 mb-4`}>
-              <MessageCircle className="w-4 h-4" /> {copiedText ? "Copied summary!" : "Copy as text — paste into any chat"}
-            </button>
-
-            <div className={`text-sm font-medium ${T.text} mb-2`}>Share with…</div>
-            <div className="flex gap-2 mb-2 opacity-70">
-              <input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="name@email.com" className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} disabled />
-              <button onClick={invite} className={`${T.btn} px-3 py-2 rounded-lg text-sm font-medium`} disabled>Invite</button>
-            </div>
-            <div className={`text-[11px] ${T.muted} mb-4`}>Add people by email once backend is connected.</div>
-
-            <div className={`text-sm font-medium ${T.text} mb-2`}>Board visibility</div>
-            <div className="flex gap-2">
-              {["private", "anyone-with-link"].map((v) => (
-                // TODO: wire to backend
-                <button key={v} onClick={()=>setVisibility(v)} className={`${visibility===v?T.chipActive:T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium`}>
-                  {v === "private" ? "Private" : "Anyone with link"}
+            <div className="flex gap-1 mb-4 bg-black/5 rounded-lg p-1">
+              {TABS.map((t) => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex-1 text-xs font-medium py-1.5 rounded-md ${tab === t.id ? "bg-white shadow-sm text-[#111b21]" : T.muted}`}>
+                  {t.label}
                 </button>
               ))}
             </div>
+
+            {tab === "link" && (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input disabled value={boardUrl} className={`${T.input} flex-1 rounded-lg px-3 py-2 text-xs opacity-80`} />
+                  <button onClick={copy} className={`${T.btn} px-3 py-2 rounded-lg text-xs font-medium inline-flex items-center gap-1`}>
+                    <Copy className="w-3.5 h-3.5" />{copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <div className={`text-[11px] ${T.muted}`}>Backend required — hook <code>POST /api/boards/:id/publish</code></div>
+                <div className={`text-sm font-medium ${T.text}`}>Invite by email</div>
+                <div className="flex gap-2 opacity-70">
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@email.com" disabled className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} />
+                  <button disabled className={`${T.btn} px-3 py-2 rounded-lg text-sm font-medium`}>Invite</button>
+                </div>
+                <div className={`text-[11px] ${T.muted}`}>Email invites need the backend connected.</div>
+                <div className={`text-sm font-medium ${T.text}`}>Visibility</div>
+                <div className="flex gap-2 flex-wrap">
+                  {[["private", "Private"], ["link", "Anyone with link"], ["public", "Public"]].map(([v, label]) => (
+                    <button key={v} onClick={() => setVisibility(v)} className={`${visibility === v ? T.chipActive : T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tab === "whatsapp" && (
+              <div className="space-y-3">
+                <a href={`https://wa.me/?text=${encodeURIComponent(waText)}`} target="_blank" rel="noreferrer"
+                  className={`${T.btn} w-full px-3 py-2.5 rounded-lg text-sm font-medium inline-flex items-center justify-center gap-2`}>
+                  <MessageCircle className="w-4 h-4" /> Open in WhatsApp
+                </a>
+                <div className={`text-xs ${T.muted}`}>Message preview</div>
+                <div className={`${T.panelSoft} p-3 rounded-lg text-sm ${T.text} whitespace-pre-wrap break-words`}>{waText}</div>
+                <div className={`text-[11px] ${T.muted}`}>Backend note: <code>POST /api/whatsapp/send</code> for in-app sending.</div>
+              </div>
+            )}
+
+            {tab === "qr" && (
+              <div className="flex flex-col items-center gap-3">
+                <div className="bg-white p-3 rounded-xl">
+                  <QRCodeSVG value={boardUrl} size={160} level="M" includeMargin />
+                </div>
+                <button onClick={copy} className={`${T.btnGhost} px-3 py-2 rounded-lg text-xs font-medium inline-flex items-center gap-1`}>
+                  <Copy className="w-3.5 h-3.5" />{copied ? "Copied!" : "Copy link"}
+                </button>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
@@ -1188,8 +1280,31 @@ function KanbanView({ T, board, onChange, gam, allBoards = [], onMoveCard }) {
   );
 }
 
+const QUICK_CONTACTS = ["ali.khan", "sara.ahmed", "usman.malik", "zara.ch", "bilal.r"];
+const TAG_OPTIONS = ["bug", "feature", "design", "urgent", "review"];
+
 function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], currentBoardId, onMove }) {
   const moveTargets = allBoards.filter((b) => b.id !== currentBoardId && ["kanban", "checklist", "calendar"].includes(b.type));
+  const [comment, setComment] = useState("");
+  function sendComment() {
+    const text = comment.trim();
+    if (!text) return;
+    onSave({ comments: [...(card.comments || []), { text, at: new Date().toISOString() }] });
+    setComment("");
+  }
+  function toggleTag(tag) {
+    const tags = card.tags || [];
+    onSave({ tags: tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag] });
+  }
+  const dl = (() => {
+    if (!card?.due) return null;
+    const d = new Date(card.due + "T00:00:00"); if (isNaN(d.getTime())) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((d - today) / 86400000);
+    if (diff < 0) return { label: "Overdue", color: "#ef4444" };
+    if (diff === 0) return { label: "Due today", color: "#f59e0b" };
+    return { label: "Due " + d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), color: "#10b981" };
+  })();
   return (
     <AnimatePresence>
       {card && (
@@ -1204,7 +1319,7 @@ function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], current
             exit={{ y: 30, opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 220, damping: 22 }}
             onClick={(e) => e.stopPropagation()}
-            className={`${T.panel} w-full max-w-lg p-6 relative max-h-[88vh] overflow-y-auto thin-scroll`}
+            className={`${T.panel} w-full max-w-lg p-6 relative max-h-[90vh] overflow-y-auto thin-scroll`}
           >
             <button onClick={onClose} className={`${T.muted} absolute top-3 right-3 hover:text-red-500`}>
               <X className="w-5 h-5" />
@@ -1226,11 +1341,18 @@ function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], current
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Clock className="w-3 h-3" /> Due date</div>
-                  <input
-                    type="date" value={card.due || ""} onChange={(e) => onSave({ due: e.target.value })}
-                    className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`}
-                  />
+                  <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Clock className="w-3 h-3" /> Due date &amp; time</div>
+                  <div className="flex gap-1">
+                    <input type="date" value={card.due || ""} onChange={(e) => onSave({ due: e.target.value })}
+                      className={`${T.input} flex-1 rounded-lg px-2 py-2 text-sm`} />
+                    <input type="time" value={card.dueTime || ""} onChange={(e) => onSave({ dueTime: e.target.value })}
+                      className={`${T.input} w-[88px] rounded-lg px-2 py-2 text-sm`} />
+                  </div>
+                  {dl && (
+                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: dl.color + "22", color: dl.color }}>
+                      <Clock className="w-3 h-3" /> {dl.label}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Zap className="w-3 h-3" /> Priority</div>
@@ -1258,12 +1380,55 @@ function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], current
                 </div>
               </div>
               <div>
-                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><User className="w-3 h-3" /> Assignee</div>
+                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><User className="w-3 h-3" /> Assign to contact</div>
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {QUICK_CONTACTS.map((c) => (
+                    <button key={c} onClick={() => onSave({ assignee: card.assignee === c ? "" : c })}
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${card.assignee === c ? T.chipActive : T.chipIdle}`}>
+                      @{c}
+                    </button>
+                  ))}
+                </div>
                 <input value={card.assignee || ""} onChange={(e) => onSave({ assignee: e.target.value })}
-                  placeholder="Name (pulls from WhatsApp contacts once connected)"
+                  placeholder="Or type a name…"
                   className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
+                <div className={`text-[10px] ${T.muted} mt-1`}>Backend required to resolve real WhatsApp contacts.</div>
+              </div>
+              <div>
+                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Tag className="w-3 h-3" /> Tag</div>
+                <div className="flex flex-wrap gap-1">
+                  {TAG_OPTIONS.map((tag) => {
+                    const on = (card.tags || []).includes(tag);
+                    return (
+                      <button key={tag} onClick={() => toggleTag(tag)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${on ? T.chipActive : T.chipIdle}`}>
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <MentionEditor T={T} mentions={card.mentions || []} onChange={(m) => onSave({ mentions: m })} />
+              <div>
+                <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><MessageCircle className="w-3 h-3" /> Mentions / comments</div>
+                {(card.comments || []).length > 0 && (
+                  <div className="space-y-1 mb-1.5">
+                    {(card.comments || []).map((cm, i) => (
+                      <div key={i} className={`${T.panelSoft} px-2.5 py-1.5 rounded-lg text-xs ${T.text}`}>
+                        <span className="whitespace-pre-wrap break-words">{cm.text}</span>
+                        <span className={`block text-[10px] ${T.muted} mt-0.5`}>{fmtDateTime(cm.at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-1">
+                  <input value={comment} onChange={(e) => setComment(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); sendComment(); } }}
+                    placeholder="Write a comment or @mention…"
+                    className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} />
+                  <button onClick={sendComment} className={`${T.btn} px-3 rounded-lg grid place-items-center`}><Send className="w-4 h-4" /></button>
+                </div>
+              </div>
               {onMove && moveTargets.length > 0 && (
                 <div>
                   <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><GitBranch className="w-3 h-3" /> Move to board</div>
@@ -1533,11 +1698,12 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
       {/* Event modal */}
       <AnimatePresence>
         {editing && (
-          <motion.div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditing(null)}>
             <motion.div onClick={(e)=>e.stopPropagation()}
               initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-              className={`${T.panel} w-full max-w-md p-5 relative`}>
+              transition={{ type: "spring", stiffness: 240, damping: 24 }}
+              className={`${T.panel} w-full max-w-md p-5 relative max-h-[90vh] overflow-y-auto thin-scroll`}>
               <button onClick={() => setEditing(null)} className={`${T.muted} absolute top-3 right-3`}><X className="w-5 h-5" /></button>
               <div className={`text-xs uppercase tracking-wider ${T.muted} mb-2`}>Event · {editing.date}</div>
               <input autoFocus value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
@@ -1555,12 +1721,33 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
                     className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm`} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1`}>End / deadline</div>
+                  <input type="date" value={editing.endDate || ""} onChange={(e) => setEditing({ ...editing, endDate: e.target.value })}
+                    className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm`} />
+                </div>
+                <div>
+                  <div className={`text-xs ${T.muted} mb-1`}>Priority</div>
+                  <select value={editing.priority || "normal"} onChange={(e) => setEditing({ ...editing, priority: e.target.value })}
+                    className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm cursor-pointer`}>
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mb-3">
+                <div className={`text-xs ${T.muted} mb-1`}>Assignee</div>
+                <input value={editing.assignee || ""} onChange={(e) => setEditing({ ...editing, assignee: e.target.value })}
+                  placeholder="Name…" className={`${T.input} w-full rounded-lg px-2 py-1.5 text-sm`} />
+              </div>
               <div className="mb-3">
                 <div className={`text-xs ${T.muted} mb-1`}>Color</div>
                 <div className="flex gap-2">
                   {COLORS.map((c) => (
                     <button key={c} onClick={() => setEditing({ ...editing, color: c })}
-                      className={`w-7 h-7 rounded-full border-2 ${editing.color === c ? "border-white scale-110 ring-2 ring-current" : "border-transparent"}`}
+                      className={`w-7 h-7 rounded-full transition ${editing.color === c ? "scale-125 ring-2 ring-white ring-offset-1" : ""}`}
                       style={{ background: c }} />
                   ))}
                 </div>
@@ -1568,13 +1755,17 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
               <textarea value={editing.note || ""} onChange={(e) => setEditing({ ...editing, note: e.target.value })}
                 placeholder="Notes (optional)"
                 className={`${T.input} w-full rounded-lg px-3 py-2 text-sm min-h-[60px] mb-3`} />
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 {editing.id ? (
                   <button onClick={() => deleteEvent(editing.id)} className="text-red-500 text-sm flex items-center gap-1 hover:underline">
                     <Trash2 className="w-4 h-4" /> Delete
                   </button>
                 ) : <span />}
-                <button onClick={() => saveEvent(editing)} className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium`}>Save</button>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditing(null)} className={`${T.btnGhost} px-4 py-2 rounded-lg text-sm font-medium`}>Cancel</button>
+                  <button onClick={() => saveEvent(editing)} disabled={!editing.title.trim()}
+                    className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50`}>Save</button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -2087,6 +2278,16 @@ const GLOW_COLORS = [
   { name: "Crimson",  c: "#f87171" },
 ];
 
+const CONNECTION_MAP = [
+  { feature: "ChatsView", endpoint: "GET /api/chats", file: "src/lib/api.ts → server/routes/chats.ts" },
+  { feature: "BoardsView", endpoint: "GET/PUT /api/boards", file: "src/lib/api.ts → server/routes/boards.ts" },
+  { feature: "CardModal", endpoint: "PATCH /api/tasks/:id", file: "src/lib/api.ts → server/routes/tasks.ts" },
+  { feature: "ShareModal", endpoint: "POST /api/boards/:id/publish", file: "server/routes/boards.ts" },
+  { feature: "Login", endpoint: "POST /api/session/start", file: "server/whatsapp/client.ts" },
+  { feature: "QR connect", endpoint: "WS /ws/whatsapp-qr", file: "server/ws/qr.ts" },
+  { feature: "BadgesView", endpoint: "GET /api/state/gamification", file: "server/routes/state.ts" },
+];
+
 function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, setSettings, glowColor, setGlowColor }) {
   const [section, setSection] = useState("account");
   const sections = [
@@ -2124,23 +2325,63 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
 
         <div className="space-y-4">
           {section === "account" && (
-            <div className={`${T.panel} p-5`}>
-              <div className="flex items-center gap-3">
-                <div className={`${T.accent} w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg`}>
-                  {(user?.name?.[0] || "U").toUpperCase()}
+            <>
+              <div className={`${T.panel} p-5`}>
+                <div className="flex items-center gap-3">
+                  <div className={`${T.accent} w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg`}>
+                    {(user?.name?.[0] || "U").toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className={`font-semibold truncate ${T.text}`}>{user?.name || "You"}</div>
+                    <div className={`text-xs ${T.muted} truncate`}>{user?.wid ? "+" + String(user.wid).replace(/@.*$/, "") : ""}</div>
+                    <div className={`text-[11px] ${T.muted} mt-0.5 inline-flex items-center gap-1`}>
+                      <ShieldCheck className="w-3 h-3 text-[#25d366]" /> Signed in with WhatsApp
+                    </div>
+                  </div>
+                  <button onClick={onLogout} title="Unlinks WhatsApp" className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 shrink-0`}>
+                    <LogOut className="w-4 h-4" /> Sign out
+                  </button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className={`font-semibold truncate ${T.text}`}>{user?.name || "You"}</div>
-                  <div className={`text-xs ${T.muted} truncate`}>{user?.wid ? "+" + String(user.wid).replace(/@.*$/, "") : ""}</div>
-                  <div className={`text-[11px] ${T.muted} mt-0.5 inline-flex items-center gap-1`}>
-                    <ShieldCheck className="w-3 h-3 text-[#25d366]" /> Signed in with WhatsApp
+              </div>
+
+              <div className={`${T.panel} p-5`}>
+                <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Smartphone className="w-4 h-4" /> Connect WhatsApp</div>
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="bg-white p-3 rounded-xl shrink-0">
+                    <QRCodeSVG value="https://whatsplan.app/connect?session=DEMO_SESSION_ID" size={140} level="M" includeMargin />
+                  </div>
+                  <ol className={`text-sm ${T.muted} space-y-1 list-decimal list-inside`}>
+                    <li>Open WhatsApp on your phone</li>
+                    <li>Tap Menu (⋮) or Settings</li>
+                    <li>Tap <b>Linked Devices</b> → <b>Link a Device</b></li>
+                    <li>Scan this QR code</li>
+                  </ol>
+                </div>
+                <div className={`${T.panelSoft} mt-3 p-3 text-[11px] ${T.muted}`}>
+                  Backend: stream the live QR over <code>WS: /ws/whatsapp-qr</code>. Files to create:
+                  <div className="mt-1 font-mono text-[10px] space-y-0.5">
+                    <div>server/whatsapp/client.ts</div>
+                    <div>server/routes/session.ts</div>
+                    <div>server/ws/qr.ts</div>
                   </div>
                 </div>
-                <button onClick={onLogout} title="Unlinks WhatsApp" className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 shrink-0`}>
-                  <LogOut className="w-4 h-4" /> Sign out
-                </button>
               </div>
-            </div>
+
+              <div className={`${T.panel} p-5`}>
+                <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Database className="w-4 h-4" /> Frontend → Backend connection map</div>
+                <div className="space-y-1.5">
+                  {CONNECTION_MAP.map((r) => (
+                    <div key={r.feature} className={`${T.panelSoft} p-2.5 rounded-lg grid grid-cols-1 sm:grid-cols-[1fr_1.3fr] gap-1`}>
+                      <div>
+                        <span className="text-sm font-medium text-[#25d366]">{r.feature}</span>
+                        <span className={`block text-[11px] ${T.muted}`}>{r.endpoint}</span>
+                      </div>
+                      <code className={`text-[10px] ${T.muted} self-center break-all`}>{r.file}</code>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           {section === "appearance" && (
@@ -2280,22 +2521,35 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
 
           {section === "pet" && (
             <div className={`${T.panel} p-5 space-y-3`}>
-              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🦊 Fox companion</div></div>
-              <ToggleRow T={T} label="Enable pet companion" hint="A floating fox that cheers you on." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
+              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🦊 Companion</div></div>
+              <ToggleRow T={T} label="Enable pet companion" hint="A floating buddy that grows as you complete tasks." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
               {settings.petEnabled && (
                 <>
-                  <div className={`${T.panelSoft} p-3 text-xs ${T.muted} flex items-center gap-2`}>
-                    <Info className="w-4 h-4 shrink-0" />
-                    <span>Showing a drawn fox. Save your exact fox image as <code>public/pets/fox.png</code> to use it pixel-perfect.</span>
+                  <div className={`text-xs ${T.muted} mt-2`}>Choose your companion</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {Object.entries(PET_PRESETS).map(([k, p]) => {
+                      const on = (settings.petChoice || "fox") === k;
+                      return (
+                        <button key={k} onClick={() => set({ petChoice: k })}
+                          className={`${T.panelSoft} p-2 rounded-lg text-center transition ${on ? "ring-2 ring-[#25d366] scale-105" : ""}`}>
+                          <div className="text-2xl">{p.emoji}</div>
+                          <div className={`text-[11px] font-medium ${T.text} truncate`}>{p.name}</div>
+                          <div className="text-[9px] truncate" style={{ color: p.color }}>{p.env}</div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className={`text-xs ${T.muted} mt-2`}>Aura color</div>
+                  <div className={`text-[11px] ${T.muted}`}>{PET_PRESETS[settings.petChoice || "fox"]?.blurb}</div>
+
+                  <div className={`text-xs ${T.muted} mt-2`}>Aura glow color</div>
                   <div className="flex gap-2 flex-wrap">
                     {AURA_COLORS.map((c) => (
                       <button key={c} onClick={() => set({ petAura: c })}
-                        className={`w-7 h-7 rounded-full border ${settings.petAura === c ? "ring-2 ring-[#25d366] ring-offset-2" : "border-black/10"}`}
-                        style={{ background: c }} aria-label={`aura ${c}`} />
+                        className={`w-7 h-7 rounded-full border transition ${settings.petAura === c ? "scale-125 border-white" : "border-black/10"}`}
+                        style={{ background: c, boxShadow: settings.petAura === c ? `0 0 10px ${c}` : "none" }} aria-label={`aura ${c}`} />
                     ))}
                   </div>
+
                   <div className={`text-xs ${T.muted} mt-2`}>Position</div>
                   <div className="flex gap-2">
                     {["left","right"].map((s) => (
@@ -2304,6 +2558,10 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
                         Bottom {s}
                       </button>
                     ))}
+                  </div>
+
+                  <div className={`${T.panelSoft} p-3 text-[11px] ${T.muted} mt-1`}>
+                    <b className={T.text}>How your pet grows:</b> complete tasks &amp; keep streaks to earn XP. Every <b>level × 100 XP</b> = a level up + a treat 🍪. Feed treats for instant XP. Double-click the pet for its companion panel; right-click for the menu.
                   </div>
                 </>
               )}
@@ -2347,16 +2605,32 @@ const DEFAULT_SETTINGS = {
   notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
   readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
   wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
-  petEnabled: true, petAura: "#25d366", petSide: "right",
+  petEnabled: true, petChoice: "fox", petAura: "#25d366", petSide: "right",
   compact: false,
 };
 
 const PET_PRESETS = {
-  cat:   { name: "Mochi",  emoji: "🐱", blurb: "Calm and curious." },
-  bear:  { name: "Coco",   emoji: "🐻", blurb: "Cuddly companion." },
-  ghost: { name: "Casper", emoji: "👻", blurb: "Quietly cheerful." },
+  fox:      { name: "Foxy",    emoji: "🦊", blurb: "Sharp & loyal. Cheers every win.",            mood: "playful", env: "cozy den",     color: "#f97316" },
+  cat:      { name: "Mochi",   emoji: "🐱", blurb: "Calm & curious. Purrs when you finish tasks.", mood: "calm",    env: "cozy room",    color: "#f59e0b" },
+  dog:      { name: "Biscuit", emoji: "🐶", blurb: "Enthusiastic. Zooms when you hit streaks!",    mood: "excited", env: "garden",       color: "#84cc16" },
+  bunny:    { name: "Mochi",   emoji: "🐰", blurb: "Gentle & sweet. Does happy binkies for you.",  mood: "playful", env: "meadow",       color: "#ec4899" },
+  bear:     { name: "Coco",    emoji: "🐻", blurb: "Cuddly & steadfast. Warm hugs on hard days.",  mood: "calm",    env: "forest",       color: "#92400e" },
+  frog:     { name: "Ribbit",  emoji: "🐸", blurb: "Quirky & chill. Meditates on lily pads.",      mood: "calm",    env: "pond",         color: "#22c55e" },
+  capybara: { name: "Capy",    emoji: "🦫", blurb: "Ultra zen. Radiates good vibes always.",       mood: "calm",    env: "hot spring",   color: "#a78bfa" },
+  ghost:    { name: "Casper",  emoji: "👻", blurb: "Quietly cheerful. Floats near good focus.",    mood: "playful", env: "haunted cozy", color: "#94a3b8" },
 };
-const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff"];
+
+const PET_MESSAGES = {
+  idle: ["I believe in you! 💚", "Stay hydrated! 💧", "You're doing amazing ✨", "One task at a time 🌱"],
+  task: ["Yes!! You crushed it!! 🎉", "Let's gooo!! 🔥", "Task destroyed! 💪", "You're unstoppable! ⚡"],
+  streak3: ["3 days in a row! You're building a habit! 🔥", "3-day streak! I got you a snack 🍪"],
+  streak7: ["ONE WEEK STREAK!! 🏆 This calls for a celebration!", "7 days!! I unlocked something special!! 🎊"],
+  streak14: ["2 WEEKS!! You're a legend!! 🌟 I evolved!", "14-day streak! We're unstoppable together! 💫"],
+  streak30: ["30 DAYS!!! 🎆 I unlocked a RARE outfit!", "A WHOLE MONTH!! You are extraordinary!! 👑"],
+  stress: ["Hey, take a breath with me... 🫁 In... out...", "You've got this. Want a 2-min break? 🌿"],
+};
+
+const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff", "#fbbf24", "#3b82f6"];
 
 /* ====================================================================== */
 /* Hatchling sprite pet — atlas-driven, with a drawn placeholder fallback   */
@@ -2434,42 +2708,27 @@ function FoxPlaceholder({ anim, w, h, aura }) {
   );
 }
 
-function SpritePet({ aura, side: initialSide }) {
+function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
+  const preset = PET_PRESETS[choice] || PET_PRESETS.fox;
+
+  /* ── ALL HOOKS FIRST (never return before these) ── */
   const [pos, setPos] = useState(() => {
     try { const v = JSON.parse(localStorage.getItem("wp_pet_pos") || "null"); if (v) return v; } catch {}
-    return { side: initialSide || "right", y: typeof window !== "undefined" ? window.innerHeight - 170 : 400 };
+    return { side: side || "right", y: typeof window !== "undefined" ? window.innerHeight - 185 : 400 };
   });
   const [bubble, setBubble] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
   const [wiggle, setWiggle] = useState(false);
-  const [manifest, setManifest] = useState(HATCH_MANIFEST);
-  const [atlasReady, setAtlasReady] = useState(false);
+  const [showPanel, setShowPanel] = useState(false);
   const [foxReady, setFoxReady] = useState(false);
-  const [anim, setAnim] = useState("idle");
-  const [frame, setFrame] = useState(0);
+  const [petXP, setPetXP] = useLocal("wp_pet_xp", 0);
+  const [petLevel, setPetLevel] = useLocal("wp_pet_level", 1);
+  const [treats, setTreats] = useLocal("wp_pet_treats", 3);
   const dragRef = useRef({ active: false, dy: 0 });
 
-  // optional manifest override (frame counts / fps) shipped next to the atlas
-  useEffect(() => {
-    let alive = true;
-    fetch(HATCH_MANIFEST.src.replace(/atlas\.webp$/, "atlas.json"))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((m) => { if (alive && m) setManifest((cur) => ({ ...cur, ...m, states: { ...cur.states, ...(m.states || {}) } })); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
-
-  // detect the real atlas; fall back to the drawn placeholder if absent
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const img = new window.Image();
-    img.onload = () => setAtlasReady(true);
-    img.onerror = () => setAtlasReady(false);
-    img.src = manifest.src;
-  }, [manifest.src]);
-
-  // your exact fox image (public/pets/fox.png) takes priority if present
+  // detect the fox image (only the fox companion uses it)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const img = new window.Image();
@@ -2478,45 +2737,30 @@ function SpritePet({ aura, side: initialSide }) {
     img.src = FOX_IMG;
   }, []);
 
-  // celebrate hook (dispatch `webpet:celebrate` anywhere to trigger)
+  // idle message timer + celebrate handler + keyboard
   useEffect(() => {
-    const onCelebrate = (e) => {
-      const msg = e?.detail?.message
-        || (e?.detail?.type === "first_visit" ? "Hi! I'm your fox. I'll keep you company! 🦊"
-          : e?.detail?.type === "streak_milestone" ? "Days in a row — you're unstoppable! 🔥"
-          : "Yes!! You did that!! 🎉");
-      setBubble(msg);
-      setAnim("jumping");
-      setTimeout(() => setBubble(null), 4000);
-    };
-    window.addEventListener("webpet:celebrate", onCelebrate);
-    const onKey = (e) => { if (e.key === "Escape") setBubble(null); };
-    window.addEventListener("keydown", onKey);
-    // gentle first greeting
-    const greet = setTimeout(() => { setBubble("Hi! I'm your fox 🦊"); setAnim("waving"); setTimeout(() => setBubble(null), 3500); }, 1200);
-    return () => { window.removeEventListener("webpet:celebrate", onCelebrate); window.removeEventListener("keydown", onKey); clearTimeout(greet); };
-  }, []);
-
-  // frame ticker
-  useEffect(() => {
-    const st = manifest.states[anim] || manifest.states.idle;
-    const fc = Math.max(1, st.frames || 1);
-    setFrame(0);
-    const id = setInterval(() => setFrame((f) => (f + 1) % fc), 1000 / (manifest.fps || 10));
-    return () => clearInterval(id);
-  }, [anim, manifest]);
-
-  // transient states return to idle; idle occasionally waves for liveliness
-  useEffect(() => {
-    if (anim === "jumping" || anim === "waving") {
-      const t = setTimeout(() => setAnim("idle"), 1500);
-      return () => clearTimeout(t);
+    const idle = setInterval(() => {
+      setBubble(PET_MESSAGES.idle[Math.floor(Math.random() * PET_MESSAGES.idle.length)]);
+      setTimeout(() => setBubble(null), 3500);
+    }, 45000);
+    function onCelebrate(e) {
+      const sc = e?.detail?.streakCount ?? 0;
+      let arr = PET_MESSAGES.task;
+      if (sc >= 30) arr = PET_MESSAGES.streak30;
+      else if (sc >= 14) arr = PET_MESSAGES.streak14;
+      else if (sc >= 7) arr = PET_MESSAGES.streak7;
+      else if (sc >= 3) arr = PET_MESSAGES.streak3;
+      setBubble(arr[Math.floor(Math.random() * arr.length)]);
+      setCelebrating(true);
+      setPetXP((x) => x + 25);
+      setTimeout(() => setCelebrating(false), 700);
+      setTimeout(() => setBubble(null), 4500);
     }
-  }, [anim]);
-  useEffect(() => {
-    const id = setInterval(() => setAnim((cur) => (cur === "idle" && Math.random() < 0.4 ? "waving" : cur)), 9000);
-    return () => clearInterval(id);
-  }, []);
+    function onKey(e) { if (e.key === "Escape") { setBubble(null); setShowPanel(false); setMenuOpen(false); } }
+    window.addEventListener("webpet:celebrate", onCelebrate);
+    window.addEventListener("keydown", onKey);
+    return () => { clearInterval(idle); window.removeEventListener("webpet:celebrate", onCelebrate); window.removeEventListener("keydown", onKey); };
+  }, [setPetXP]);
 
   // drag to reposition (snaps to nearest side, persists)
   useEffect(() => {
@@ -2524,104 +2768,143 @@ function SpritePet({ aura, side: initialSide }) {
       if (!dragRef.current.active) return;
       const cy = e.touches ? e.touches[0].clientY : e.clientY;
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
-      setPos((p) => ({ ...p, y: Math.max(20, Math.min(window.innerHeight - 130, cy - dragRef.current.dy)), _x: cx }));
+      setPos((p) => ({ ...p, y: Math.max(20, Math.min(window.innerHeight - 150, cy - dragRef.current.dy)), _x: cx }));
     }
     function onUp() {
       if (!dragRef.current.active) return;
       dragRef.current.active = false;
       setPos((p) => {
-        const side = (p._x ?? 0) < window.innerWidth / 2 ? "left" : "right";
-        const next = { side, y: p.y };
+        const s = (p._x ?? 0) < window.innerWidth / 2 ? "left" : "right";
+        const next = { side: s, y: p.y };
         try { localStorage.setItem("wp_pet_pos", JSON.stringify(next)); } catch {}
         return next;
       });
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchmove", onMove);
-    window.addEventListener("touchend", onUp);
+    window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove); window.addEventListener("touchend", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onUp);
+      window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove); window.removeEventListener("touchend", onUp);
     };
   }, []);
 
-  const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; } })();
+  // level up when XP crosses the threshold (earns a treat)
+  useEffect(() => {
+    if (petXP >= petLevel * 100) { setPetLevel((l) => l + 1); setTreats((t) => t + 1); }
+  }, [petXP, petLevel, setPetLevel, setTreats]);
 
-  // display geometry
-  const displayH = 116;
-  const scale = displayH / manifest.frameH;
-  const fw = Math.round(manifest.frameW * scale);
-  const fh = Math.round(manifest.frameH * scale);
-  const st = manifest.states[anim] || manifest.states.idle;
-  const spriteStyle = {
-    width: fw,
-    height: fh,
-    backgroundImage: `url(${manifest.src})`,
-    backgroundRepeat: "no-repeat",
-    backgroundSize: `${manifest.cols * fw}px ${manifest.rows * fh}px`,
-    backgroundPosition: `${-frame * fw}px ${-st.row * fh}px`,
-    filter: `drop-shadow(0 0 10px ${aura})`,
-  };
+  /* ── derived (non-hook) ── */
+  const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; } })();
+  const isSnoozed = snoozeUntil > Date.now();
+  const xpForNext = petLevel * 100;
+  const xpPct = Math.min(100, Math.round(((petXP % xpForNext) / xpForNext) * 100));
+  const mood = tasksToday >= 5 ? "excited" : tasksToday >= 2 ? "happy" : streak >= 7 ? "proud" : "calm";
+  const MOOD = { excited: ["🤩", "Excited"], happy: ["😊", "Happy"], proud: ["🥳", "Proud"], calm: ["😌", "Calm"] };
+  const anchor = pos.side === "right" ? { right: 20 } : { left: 20 };
 
   function startDrag(e) {
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
     dragRef.current = { active: true, dy: cy - pos.y };
   }
+  function sayIdle() {
+    setBubble(PET_MESSAGES.idle[Math.floor(Math.random() * PET_MESSAGES.idle.length)]);
+    setTimeout(() => setBubble(null), 3500);
+  }
+  function feed() {
+    if (treats <= 0) return;
+    setTreats((t) => t - 1);
+    setPetXP((x) => x + 25);
+    setBubble("Yummy! +25 XP 🍪");
+    setCelebrating(true);
+    setTimeout(() => setCelebrating(false), 700);
+    setTimeout(() => setBubble(null), 3000);
+    setMenuOpen(false);
+  }
 
-  if (snoozeUntil > Date.now()) return null;
-
+  /* ── early returns (after ALL hooks) ── */
+  if (isSnoozed) return null;
   if (collapsed) {
     return (
-      <button
-        onClick={() => setCollapsed(false)}
-        style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }}
+      <button onClick={() => setCollapsed(false)}
+        style={{ ...anchor, top: pos.y, position: "fixed", zIndex: 9999 }}
         className="w-9 h-9 rounded-full bg-white shadow-lg border border-black/10 grid place-items-center text-base">
-        🦊
+        🐾
       </button>
     );
   }
 
+  const petAnimate = celebrating ? { scale: [1, 1.4, 0.85, 1.2, 1], rotate: [-8, 8, -4, 0] }
+    : wiggle ? { scale: [1, 1.15, 1] } : { scale: 1 };
+  const petTransition = { duration: celebrating ? 0.5 : 0.3 };
+
   return (
-    <div style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }} className="select-none">
-      {bubble && (
-        <div className="mb-2 max-w-[220px] rounded-xl bg-white text-[#1E293B] text-xs px-3 py-2 shadow-lg border border-black/10 cursor-pointer"
-          onClick={() => setBubble(null)}>{bubble}</div>
-      )}
-      <motion.div
-        role="img"
-        aria-label="Hatchling, your companion"
-        onMouseDown={startDrag}
-        onTouchStart={startDrag}
-        onClick={() => { setWiggle(true); setAnim("jumping"); setTimeout(() => setWiggle(false), 320); }}
-        onDoubleClick={() => setCollapsed(true)}
-        onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o) => !o); }}
-        animate={{ scale: wiggle ? 1.12 : 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 14 }}
-        className="cursor-grab active:cursor-grabbing"
-      >
-        {foxReady ? (
-          (() => { const m = petMotion(anim); return (
-            <motion.img src={FOX_IMG} width={fh} height={fh} draggable={false} alt="pet"
-              animate={m.animate} transition={m.transition}
-              style={{ width: fh, height: fh, objectFit: "contain", filter: `drop-shadow(0 0 8px ${aura})` }} />
-          ); })()
-        ) : atlasReady ? (
-          <div style={spriteStyle} />
-        ) : (
-          <FoxPlaceholder anim={anim} w={fw} h={fh} aura={aura} />
+    <div style={{ ...anchor, top: pos.y, position: "fixed", zIndex: 9999 }} className="select-none">
+      <AnimatePresence>
+        {bubble && (
+          <motion.div key={bubble}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            className="mb-2 max-w-[220px] rounded-xl bg-white text-[#1E293B] text-xs px-3 py-2 shadow-lg border border-black/10 cursor-pointer"
+            onClick={() => setBubble(null)}>{bubble}</motion.div>
         )}
+      </AnimatePresence>
+
+      <motion.div
+        role="img" aria-label={`${preset.name}, your companion`}
+        onMouseDown={startDrag} onTouchStart={startDrag}
+        onClick={() => { setWiggle(true); sayIdle(); setTimeout(() => setWiggle(false), 340); }}
+        onDoubleClick={() => setShowPanel((v) => !v)}
+        onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o) => !o); }}
+        animate={petAnimate} transition={petTransition}
+        className="cursor-grab active:cursor-grabbing grid place-items-center"
+        style={{ width: 116, height: 116, filter: `drop-shadow(0 0 12px ${aura})` }}
+      >
+        {choice === "fox" && foxReady
+          ? <img src={FOX_IMG} width={108} height={108} draggable={false} alt="pet" style={{ objectFit: "contain" }} />
+          : <span style={{ fontSize: 64, lineHeight: 1 }}>{preset.emoji}</span>}
       </motion.div>
+
+      {/* level badge + XP bar */}
+      <div className="mt-1 flex items-center gap-1.5" style={{ width: 116 }}>
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: preset.color }}>Lv {petLevel}</span>
+        <div className="flex-1 h-1.5 rounded-full bg-black/20 overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{ width: `${xpPct}%`, background: "#25d366" }} />
+        </div>
+      </div>
+
       {menuOpen && (
-        <div className={`absolute ${pos.side === "right" ? "right-0" : "left-0"} mt-2 w-44 rounded-lg bg-white border border-black/10 shadow-xl text-sm overflow-hidden`}>
-          <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent("webpet:open-settings")); }}
-            className="w-full text-left px-3 py-2 hover:bg-black/5">Settings</button>
-          <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30 * 60 * 1000)); } catch {} window.location.reload(); }}
-            className="w-full text-left px-3 py-2 hover:bg-black/5">Snooze 30 min</button>
-          <button onClick={() => { setMenuOpen(false); setCollapsed(true); }}
-            className="w-full text-left px-3 py-2 hover:bg-black/5">Hide</button>
+        <div className={`absolute ${pos.side === "right" ? "right-0" : "left-0"} mt-2 w-52 rounded-lg bg-white border border-black/10 shadow-xl text-sm overflow-hidden z-10`}>
+          <button onClick={feed} disabled={treats <= 0} className="w-full text-left px-3 py-2 hover:bg-black/5 disabled:opacity-40">🍪 Feed treat ({treats})</button>
+          <button onClick={() => { setMenuOpen(false); sayIdle(); }} className="w-full text-left px-3 py-2 hover:bg-black/5">💬 Pet {preset.name}</button>
+          <button onClick={() => { setMenuOpen(false); setShowPanel(true); }} className="w-full text-left px-3 py-2 hover:bg-black/5">🏡 Open companion panel</button>
+          <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30 * 60 * 1000)); } catch {} window.location.reload(); }} className="w-full text-left px-3 py-2 hover:bg-black/5">⏸ Snooze 30 min</button>
+          <button onClick={() => { setMenuOpen(false); setCollapsed(true); }} className="w-full text-left px-3 py-2 hover:bg-black/5">🙈 Hide</button>
+        </div>
+      )}
+
+      {showPanel && (
+        <div className={`absolute bottom-full mb-2 ${pos.side === "right" ? "right-0" : "left-0"} w-64 rounded-2xl bg-white shadow-2xl border border-black/10 overflow-hidden z-10`}>
+          <div className="p-4 text-white relative" style={{ background: `linear-gradient(135deg, ${aura}, ${preset.color})` }}>
+            <button onClick={() => setShowPanel(false)} className="absolute top-2 right-2 text-white/80 hover:text-white"><X className="w-4 h-4" /></button>
+            <div className="flex items-center gap-3">
+              <span style={{ fontSize: 40, lineHeight: 1 }}>{preset.emoji}</span>
+              <div className="min-w-0">
+                <div className="font-bold">{preset.name}</div>
+                <div className="text-[11px] opacity-90">{preset.blurb}</div>
+                <div className="text-[10px] opacity-80 mt-0.5">🏡 {preset.env}</div>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 space-y-2 text-[#111b21]">
+            <div className="flex items-center justify-between text-xs"><span className="font-semibold">Level {petLevel}</span><span className="text-black/50">{petXP % xpForNext}/{xpForNext} XP</span></div>
+            <div className="h-2 rounded-full bg-black/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${xpPct}%`, background: "#25d366" }} /></div>
+            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Treats</div><div className="font-bold">🍪 {treats}</div></div>
+              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Mood</div><div className="font-bold">{MOOD[mood][0]} {MOOD[mood][1]}</div></div>
+              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Streak</div><div className="font-bold">🔥 {streak}</div></div>
+              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Today</div><div className="font-bold">✅ {tasksToday}</div></div>
+            </div>
+            <button onClick={feed} disabled={treats <= 0} className="w-full mt-1 py-2 rounded-lg bg-[#25d366] text-white text-sm font-semibold disabled:opacity-40">🍪 Feed treat (+25 XP)</button>
+          </div>
         </div>
       )}
     </div>
@@ -2734,7 +3017,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
       </nav>
 
       {/* Hatchling sprite pet floats over everything */}
-      {settings.petEnabled && <SpritePet aura={settings.petAura} side={settings.petSide} />}
+      {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} streak={gam.streak?.count || 0} tasksToday={gam.completedToday || 0} />}
     </div>
   );
 }
