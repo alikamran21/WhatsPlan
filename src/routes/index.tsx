@@ -1,14 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import WhatsPlanApp from "@/components/WhatsPlanApp";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "WhatsPlan — Chat, plan, win the day" },
-      { name: "description", content: "WhatsApp-native planning workspace with kanban, tables, roadmaps, calendars, checklists and notes. Themed eight ways, always WhatsApp green." },
-      { property: "og:title", content: "WhatsPlan — Chat, plan, win the day" },
-      { property: "og:description", content: "Plan beside your conversations. Kanban, tables, roadmaps and more, themed in WhatsApp green." },
+      { title: "Your App" },
+      { name: "description", content: "Replace this with a one-sentence description of your app." },
+      { property: "og:title", content: "Your App" },
+      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
     ],
   }),
-  component: WhatsPlanApp,
+  component: Index,
 });
+
+// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
+function Index() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center"
+      style={{ backgroundColor: "#fcfbf8" }}
+    >
+      <img
+        data-lovable-blank-page-placeholder="REMOVE_THIS"
+        src="https://cdn.gpteng.co/blank-app-v1.svg"
+        alt="Your app will live here!"
+      />
+    </div>
+  );
+}
