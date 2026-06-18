@@ -10,7 +10,7 @@ import {
   GitBranch, Columns3, Pencil, Trash2, Check, X, ChevronRight, ChevronDown,
   Mail, KeyRound, ArrowRight, Bell, Shield, Database, Keyboard, HelpCircle,
   Globe, Type, Wallpaper, Smartphone, Volume2, Eye, Download, Info,
-  Clock, Tag, AlignLeft, Zap, MessageCircle, RefreshCw,
+  Clock, Tag, AlignLeft, Zap, MessageCircle, RefreshCw, Share2, Copy, Link as LinkIcon,
 } from "lucide-react";
 
 /* ====================================================================== */
@@ -70,23 +70,23 @@ const THEMES = {
     blurb: "Bold borders, hard shadows.",
     bg: "wa-bg-brutal",
     swatch: ["#25d366", "#0a0a0a", "#fffbe8", "#128c7e"],
-    sidebar: "bg-[#25d366] border-r-[3px] border-black",
-    topbar: "bg-white border-b-[3px] border-black",
+    sidebar: "bg-[#25d366] border-r-[4px] border-black",
+    topbar: "bg-white border-b-[4px] border-black",
     panel: "brutal",
-    panelSoft: "bg-white border-2 border-black rounded-md",
+    panelSoft: "bg-white border-[3px] border-black rounded-md",
     accent: "bg-black text-[#25d366]",
-    chipActive: "bg-black text-[#25d366] border-2 border-black shadow-[3px_3px_0_0_#000]",
-    chipIdle: "bg-white text-black border-2 border-black hover:bg-[#d9fdd3]",
-    bubbleMe: "bg-[#25d366] text-black border-2 border-black shadow-[3px_3px_0_0_#000]",
-    bubbleThem: "bg-white text-black border-2 border-black",
-    input: "bg-white border-2 border-black text-black placeholder:text-black/50 rounded-md",
-    btn: "bg-black text-[#25d366] border-2 border-black hover:bg-[#128c7e] hover:text-white shadow-[4px_4px_0_0_#000]",
-    btnGhost: "bg-white text-black border-2 border-black hover:bg-[#d9fdd3]",
+    chipActive: "bg-black text-[#25d366] border-[3px] border-black shadow-[4px_4px_0_0_#000]",
+    chipIdle: "bg-white text-black border-[3px] border-black hover:bg-[#d9fdd3]",
+    bubbleMe: "bg-[#25d366] text-black border-[3px] border-black shadow-[5px_5px_0_0_#000]",
+    bubbleThem: "bg-white text-black border-[3px] border-black",
+    input: "bg-white border-[3px] border-black text-black placeholder:text-black/70 rounded-md",
+    btn: "bg-black text-[#25d366] border-[3px] border-black hover:bg-[#128c7e] hover:text-white shadow-[5px_5px_0_0_#000]",
+    btnGhost: "bg-white text-black border-[3px] border-black hover:bg-[#d9fdd3]",
     column: "brutal",
-    card: "bg-[#d9fdd3] border-2 border-black rounded-md shadow-[3px_3px_0_0_#000]",
+    card: "bg-[#d9fdd3] border-[3px] border-black rounded-md shadow-[5px_5px_0_0_#000]",
     text: "text-black",
-    muted: "text-black/60",
-    badge: "bg-white border-2 border-black shadow-[3px_3px_0_0_#000]",
+    muted: "text-black/75",
+    badge: "bg-white border-[3px] border-black shadow-[4px_4px_0_0_#000]",
     avatarRing: "ring-2 ring-black",
   },
   skeuo: {
@@ -238,23 +238,30 @@ function useLocal(key, initial) {
 /* ====================================================================== */
 /* WhatsApp logo                                                           */
 /* ====================================================================== */
-function WALogo({ size = 64 }) {
+/* WPLogo — original speech-bubble + 2x2 task grid (NOT the WhatsApp handset) */
+function WPLogo({ size = 64 }) {
+  const r = 22;
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="WhatsPlan">
       <defs>
-        <linearGradient id="wag" x1="0" x2="1" y1="0" y2="1">
+        <linearGradient id="wpg" x1="0" x2="1" y1="0" y2="1">
           <stop offset="0%" stopColor="#25d366" />
           <stop offset="100%" stopColor="#128c7e" />
         </linearGradient>
       </defs>
-      <circle cx="50" cy="50" r="48" fill="url(#wag)" />
-      <path
-        d="M50 22c-15.5 0-28 12.5-28 28 0 5 1.3 9.7 3.7 13.7L22 78l14.7-3.5C40.5 76.7 45.1 78 50 78c15.5 0 28-12.5 28-28S65.5 22 50 22zm16.4 39.6c-.7 1.9-3.9 3.6-5.5 3.8-1.4.2-3.2.3-5.2-.3-1.2-.4-2.7-.9-4.7-1.7-8.3-3.6-13.7-12-14.1-12.6-.4-.5-3.4-4.5-3.4-8.6 0-4.1 2.1-6.1 2.9-6.9.7-.8 1.6-1 2.1-1h1.5c.5 0 1.1 0 1.7 1.3.7 1.5 2.2 5.1 2.4 5.5.2.4.3.9 0 1.4-.3.5-.4.8-.8 1.2-.4.5-.8 1-1.1 1.4-.4.5-.8 1-.3 1.9.5.9 2 3.3 4.3 5.3 3 2.6 5.6 3.5 6.4 3.9.8.4 1.3.4 1.7-.2.5-.7 2-2.3 2.6-3.1.5-.8 1-.7 1.7-.4.7.3 4.5 2.1 5.3 2.5.8.4 1.3.6 1.5.9.2.4.2 2-.5 4z"
-        fill="#fff"
-      />
+      <rect x="6" y="6" width="88" height="88" rx={r} ry={r} fill="url(#wpg)" />
+      {/* 2x2 task grid */}
+      <rect x="22" y="22" width="24" height="24" rx="6" fill="#fff" />
+      <rect x="54" y="22" width="24" height="24" rx="6" fill="#fff" opacity="0.85" />
+      <rect x="22" y="54" width="24" height="24" rx="6" fill="#fff" opacity="0.85" />
+      <rect x="54" y="54" width="24" height="24" rx="6" fill="#fff" />
+      {/* checkmarks in tl + br */}
+      <path d="M28 34 l5 5 l9 -10" fill="none" stroke="#128c7e" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M60 66 l5 5 l9 -10" fill="none" stroke="#128c7e" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
+const WALogo = WPLogo; // back-compat alias for any remaining call sites
 
 /* ====================================================================== */
 /* Splash / entry animation                                                */
@@ -364,7 +371,7 @@ function Splash({ onDone }) {
           transition={{ duration: 2, repeat: Infinity }}
         />
         <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
-          <WALogo size={140} />
+          <WPLogo size={128} />
         </motion.div>
       </motion.div>
 
@@ -461,7 +468,7 @@ function Login({ onLogin }) {
         {/* LEFT: form */}
         <div className="p-7 sm:p-9 flex flex-col">
           <div className="flex items-center gap-3">
-            <WALogo size={40} />
+            <WPLogo size={44} />
             <div>
               <div className="font-[var(--font-display)] text-xl font-bold tracking-tight text-[#111b21]">WhatsPlan</div>
               <div className="text-[#54656f] text-xs">Chat-powered planning</div>
@@ -565,7 +572,7 @@ function Login({ onLogin }) {
             {/* center logo overlay */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="bg-white rounded-xl p-1.5 shadow-md">
-                <WALogo size={36} />
+                <WPLogo size={36} />
               </div>
             </div>
             {/* corner accents */}
@@ -769,7 +776,7 @@ function BoardsView({ T, boards, setBoards, gam }) {
   function remove(id) { setBoards(boards.filter((b) => b.id !== id)); if (openId === id) setOpenId(null); }
 
   if (open) {
-    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} />;
+    return <BoardDetail T={T} board={open} onBack={() => setOpenId(null)} onChange={update} gam={gam} allBoards={boards} />;
   }
 
   return (
@@ -857,30 +864,93 @@ function BoardCreator({ T, onCancel, onCreate }) {
   );
 }
 
-function BoardDetail({ T, board, onBack, onChange, gam }) {
+function BoardDetail({ T, board, onBack, onChange, gam, allBoards }) {
+  const [shareOpen, setShareOpen] = useState(false);
   return (
-    <div className="p-6 max-w-7xl mx-auto w-full">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm`}>← Back</button>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 mb-4 sm:flex sm:flex-wrap sm:justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={onBack} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm shrink-0`}>← Back</button>
           <input
             value={board.name}
             onChange={(e) => onChange({ ...board, name: e.target.value })}
-            className={`bg-transparent font-[var(--font-display)] text-2xl font-bold ${T.text} outline-none`}
+            className={`bg-transparent font-[var(--font-display)] text-xl sm:text-2xl font-bold ${T.text} outline-none min-w-0 flex-1 truncate`}
           />
         </div>
-        <div className={`${T.badge} px-3 py-1 rounded-full text-xs font-medium ${T.text}`}>
-          {BOARD_TYPES.find((b) => b.id === board.type)?.name}
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setShareOpen(true)} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm inline-flex items-center gap-1.5`}>
+            <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">Share</span>
+          </button>
+          <div className={`${T.badge} px-3 py-1 rounded-full text-xs font-medium ${T.text} hidden sm:block`}>
+            {BOARD_TYPES.find((b) => b.id === board.type)?.name}
+          </div>
         </div>
       </div>
 
       {board.type === "kanban"    && <KanbanView    T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "table"     && <TableView     T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "roadmap"   && <RoadmapView   T={T} board={board} onChange={onChange} gam={gam} />}
-      {board.type === "calendar"  && <CalendarView  T={T} board={board} onChange={onChange} />}
+      {board.type === "calendar"  && <CalendarView  T={T} board={board} onChange={onChange} allBoards={allBoards} />}
       {board.type === "checklist" && <ChecklistView T={T} board={board} onChange={onChange} gam={gam} />}
       {board.type === "notes"     && <NotesView     T={T} board={board} onChange={onChange} />}
+
+      <ShareModal T={T} open={shareOpen} onClose={() => setShareOpen(false)} board={board} />
     </div>
+  );
+}
+
+/* ---- Board share modal (frontend shell) ---- */
+function ShareModal({ T, open, onClose, board }) {
+  const [copied, setCopied] = useState(false);
+  const [email, setEmail] = useState("");
+  const [visibility, setVisibility] = useState("private");
+  const link = `https://whatsplan.app/board/${board.id}`;
+  function copy() {
+    try { navigator.clipboard?.writeText(link); } catch {}
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
+  function invite() {
+    // TODO: POST /api/boards/:id/share with emails array
+    setEmail("");
+  }
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+          <motion.div onClick={(e)=>e.stopPropagation()}
+            initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+            className={`${T.panel} w-full max-w-md p-5 relative`}>
+            <button onClick={onClose} className={`${T.muted} absolute top-3 right-3`}><X className="w-5 h-5" /></button>
+            <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Share2 className="w-4 h-4" /> Share board</div>
+            <div className="flex gap-2 mb-2">
+              <input disabled value={link} className={`${T.input} flex-1 rounded-lg px-3 py-2 text-xs opacity-80`} />
+              <button onClick={copy} className={`${T.btn} px-3 py-2 rounded-lg text-xs font-medium inline-flex items-center gap-1`}>
+                <Copy className="w-3.5 h-3.5" />{copied ? "Copied!" : "Copy link"}
+              </button>
+            </div>
+            <div className={`text-[11px] ${T.muted} mb-4`}>Backend required — link is a preview pattern only.</div>
+
+            <div className={`text-sm font-medium ${T.text} mb-2`}>Share with…</div>
+            <div className="flex gap-2 mb-2 opacity-70">
+              <input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="name@email.com" className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} disabled />
+              <button onClick={invite} className={`${T.btn} px-3 py-2 rounded-lg text-sm font-medium`} disabled>Invite</button>
+            </div>
+            <div className={`text-[11px] ${T.muted} mb-4`}>Add people by email once backend is connected.</div>
+
+            <div className={`text-sm font-medium ${T.text} mb-2`}>Board visibility</div>
+            <div className="flex gap-2">
+              {["private", "anyone-with-link"].map((v) => (
+                // TODO: wire to backend
+                <button key={v} onClick={()=>setVisibility(v)} className={`${visibility===v?T.chipActive:T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium`}>
+                  {v === "private" ? "Private" : "Anyone with link"}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -1157,7 +1227,7 @@ function RoadmapView({ T, board, onChange, gam }) {
 }
 
 /* ---- Calendar ---- */
-function CalendarView({ T, board, onChange }) {
+function CalendarView({ T, board, onChange, allBoards = [] }) {
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [editing, setEditing] = useState(null); // event or new draft
   const [draftDate, setDraftDate] = useState(null);
@@ -1173,6 +1243,24 @@ function CalendarView({ T, board, onChange }) {
   const COLORS = ["#25d366", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
   function isoFor(d) { return new Date(cursor.y, cursor.m, d).toISOString().slice(0, 10); }
   function eventsOn(d) { return board.events.filter((e) => e.date === isoFor(d)).sort((a,b)=> (a.time||"").localeCompare(b.time||"")); }
+  // Cross-board sync: collect any task/card with a dueDate from other boards
+  const crossRefs = useMemo(() => {
+    const out = [];
+    for (const b of allBoards) {
+      if (!b || b.id === board.id) continue;
+      if (b.type === "kanban" && b.columns) {
+        for (const c of b.columns) for (const k of c.cards) if (k.due) out.push({ date: k.due, title: k.title, source: b.name });
+      } else if (b.type === "table" && b.rows) {
+        // skip — table rows have no schema-typed due field
+      } else if (b.type === "roadmap" && b.items) {
+        for (const it of b.items) if (it.due) out.push({ date: it.due, title: it.title, source: b.name });
+      } else if (b.type === "checklist" && b.items) {
+        for (const it of b.items) if (it.due) out.push({ date: it.due, title: it.title, source: b.name });
+      }
+    }
+    return out;
+  }, [allBoards, board.id]);
+  function refsOn(d) { const iso = isoFor(d); return crossRefs.filter(r => r.date === iso); }
   function openNew(d) { setDraftDate(isoFor(d)); setEditing({ id: null, date: isoFor(d), title: "", time: "", color: COLORS[0], note: "" }); }
   function saveEvent(ev) {
     if (!ev.title) { setEditing(null); return; }
@@ -1211,33 +1299,41 @@ function CalendarView({ T, board, onChange }) {
         </div>
         <div className="grid grid-cols-7 gap-1">
           {cells.map((d, i) => {
-            const iso = d ? isoFor(d) : null;
-            const isToday = iso === todayIso;
-            const evs = d ? eventsOn(d) : [];
-            return (
-              <div key={i}
-                className={`${d ? T.panelSoft : "opacity-0 pointer-events-none"} min-h-[88px] p-1.5 text-xs ${T.text} ${isToday ? "ring-2 ring-[#25d366]" : ""} relative group`}>
-                {d && (
-                  <>
-                    <button onClick={() => openNew(d)} className={`w-full text-left font-semibold ${isToday ? "text-[#25d366]" : "opacity-70"} hover:opacity-100`}>
-                      {d}{isToday && <span className="ml-1 text-[9px] uppercase tracking-wider">today</span>}
-                    </button>
-                    <div className="mt-1 space-y-0.5">
-                      {evs.slice(0, 3).map((e) => (
-                        <button key={e.id}
-                          onClick={() => setEditing(e)}
-                          className="w-full text-left text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1"
-                          style={{ background: (e.color || "#25d366") + "33", color: e.color || "#25d366" }}>
-                          {e.time && <span className="font-semibold">{e.time}</span>} {e.title}
-                        </button>
-                      ))}
-                      {evs.length > 3 && <div className={`text-[9px] ${T.muted}`}>+{evs.length - 3} more</div>}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
+             const iso = d ? isoFor(d) : null;
+             const isToday = iso === todayIso;
+             const evs = d ? eventsOn(d) : [];
+             const refs = d ? refsOn(d) : [];
+             return (
+               <div key={i}
+                 className={`${d ? T.panelSoft : "opacity-0 pointer-events-none"} min-h-[48px] sm:min-h-[88px] p-1.5 text-xs ${T.text} ${isToday ? "ring-2 ring-[#25d366]" : ""} relative group`}>
+                 {d && (
+                   <>
+                     <button onClick={() => openNew(d)} className={`w-full text-left font-semibold ${isToday ? "text-[#25d366]" : "opacity-70"} hover:opacity-100`}>
+                       {d}{isToday && <span className="ml-1 text-[9px] uppercase tracking-wider">today</span>}
+                     </button>
+                     <div className="mt-1 space-y-0.5">
+                       {evs.slice(0, 3).map((e) => (
+                         <button key={e.id}
+                           onClick={() => setEditing(e)}
+                           className="w-full text-left text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1"
+                           style={{ background: (e.color || "#25d366") + "33", color: e.color || "#25d366" }}>
+                           {e.time && <span className="font-semibold">{e.time}</span>} {e.title}
+                         </button>
+                       ))}
+                       {refs.slice(0, 2).map((r, ri) => (
+                         <div key={"r"+ri} title={`${r.source} · ${r.title}`}
+                           className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1 ${T.muted}`}
+                           style={{ background: "currentColor", color: "currentColor", backgroundColor: "rgba(37,211,102,0.12)" }}>
+                           <span className="opacity-80">↗</span> <span className="truncate">{r.title}</span>
+                         </div>
+                       ))}
+                       {(evs.length + refs.length) > 5 && <div className={`text-[9px] ${T.muted}`}>+{evs.length + refs.length - 5} more</div>}
+                     </div>
+                   </>
+                 )}
+               </div>
+             );
+           })}
         </div>
       </div>
 
@@ -1385,43 +1481,143 @@ function NotesView({ T, board, onChange }) {
 /* ====================================================================== */
 /* Chats / Calls placeholder views                                          */
 /* ====================================================================== */
+/* ====================================================================== */
+/* ChatsView — backend-ready shell, no mock data                            */
+/* ====================================================================== */
 function ChatsView({ T, wallpaper }) {
+  // TODO: replace connected state with real WhatsApp session check
+  const [connected, setConnected] = useState(false);
+  // TODO: backend hook — populate from WhatsApp Web API
+  const [chats, setChats] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  // TODO: backend hook — populate per-thread messages
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [query, setQuery] = useState("");
+
+  function handleSend() {
+    if (!draft.trim()) return;
+    // TODO: send message via WhatsApp backend
+    setDraft("");
+  }
+
   return (
     <div className="flex h-full">
-      <div className={`${T.sidebar} w-80 shrink-0 flex flex-col`}>
-        <div className="p-3 border-b border-current/10">
+      {/* LEFT panel */}
+      <div className={`${T.sidebar} w-full md:w-80 shrink-0 flex flex-col ${selectedChat ? "hidden md:flex" : "flex"}`}>
+        <div className="p-3 border-b border-current/10 space-y-3">
           <div className={`${T.input} flex items-center gap-2 rounded-lg px-3 py-1.5`}>
             <Search className="w-4 h-4 opacity-60" />
-            <input placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
+            <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
           </div>
+          {!connected && (
+            <div className="rounded-lg p-3 bg-[#25d366]/15 border border-[#25d366]/40 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#128c7e] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className={`text-xs font-semibold ${T.text}`}>Backend required</div>
+                <div className={`text-[11px] ${T.muted}`}>Connect WhatsApp to see your chats.</div>
+              </div>
+              <button onClick={()=>setConnected(true)} className={`${T.btn} text-xs px-3 py-1 rounded-md font-medium shrink-0`}>Connect</button>
+            </div>
+          )}
         </div>
-        <div className="flex-1 overflow-auto thin-scroll p-6 text-center">
-          <MessageSquare className={`w-10 h-10 mx-auto mb-3 ${T.muted}`} />
-          <div className={`font-semibold ${T.text}`}>No chats yet</div>
-          <div className={`text-sm ${T.muted} mt-1`}>Once the WhatsApp backend is linked, your conversations will appear here.</div>
+        <div className="flex-1 overflow-auto thin-scroll">
+          {chats.length === 0 ? (
+            <div className="p-6 text-center">
+              <svg viewBox="0 0 64 64" className="w-16 h-16 mx-auto mb-3 opacity-60"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M20 28h24M20 36h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              <div className={`font-semibold ${T.text}`}>No chats yet</div>
+              <div className={`text-sm ${T.muted} mt-1`}>Your WhatsApp conversations will appear here once connected.</div>
+            </div>
+          ) : (
+            <div>
+              {/* TODO: render ChatListItem with real chat data */}
+              {chats.map(() => null)}
+            </div>
+          )}
         </div>
       </div>
-      <div className={`flex-1 ${T.panel} m-3 flex items-center justify-center text-center p-8`} style={wallpaper ? { background: wallpaper } : undefined}>
-        <div>
-          <WALogo size={80} />
-          <div className={`mt-4 font-[var(--font-display)] text-xl font-bold ${T.text}`}>Pick a conversation</div>
-          <div className={`${T.muted} text-sm mt-1 max-w-sm`}>End-to-end planning, side by side with your chats.</div>
-        </div>
+
+      {/* MAIN panel */}
+      <div className={`flex-1 ${T.panel} m-0 md:m-3 flex flex-col ${selectedChat ? "flex" : "hidden md:flex"}`} style={wallpaper ? { background: wallpaper } : undefined}>
+        {!selectedChat ? (
+          <div className="flex-1 flex items-center justify-center p-8 text-center">
+            <div>
+              <div className="inline-block"><WPLogo size={80} /></div>
+              <div className={`mt-4 font-[var(--font-display)] text-xl font-bold ${T.text}`}>Select a conversation</div>
+              <div className={`${T.muted} text-sm mt-1 max-w-sm`}>Your chats will appear once WhatsApp is connected.</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <header className={`${T.topbar} h-14 flex items-center px-3 gap-3`}>
+              <button onClick={()=>setSelectedChat(null)} className={`${T.btnGhost} px-2 py-1 rounded-md text-sm`}>←</button>
+              <div className={`font-semibold ${T.text} truncate`}>{selectedChat?.name || "Chat"}</div>
+            </header>
+            <div className="flex-1 overflow-auto p-4">
+              {messages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center">
+                  <div className={`${T.muted} text-sm`}>No messages yet</div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* TODO: render message bubbles with real message data */}
+                  {messages.map(() => null)}
+                </div>
+              )}
+            </div>
+            <div className={`${T.topbar} p-2 flex items-center gap-2`}>
+              <input value={draft} onChange={(e)=>setDraft(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&handleSend()}
+                placeholder="Type a message" className={`${T.input} flex-1 rounded-full px-4 py-2 text-sm`} />
+              <button onClick={handleSend} className={`${T.btn} w-10 h-10 rounded-full grid place-items-center`}><Send className="w-4 h-4" /></button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
+/* ====================================================================== */
+/* CallsView — backend-ready shell                                          */
+/* ====================================================================== */
 function CallsView({ T }) {
+  // TODO: wire to real connection state
+  const connected = false;
+  // TODO: backend hook — populate call history
+  const [calls, setCalls] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const filters = ["all", "missed", "incoming", "outgoing"];
+
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text} mb-1`}>Calls</h2>
-      <p className={`${T.muted} text-sm mb-6`}>Call history will sync after backend is connected.</p>
-      <div className={`${T.panel} p-10 text-center`}>
-        <Phone className={`w-10 h-10 mx-auto mb-3 ${T.muted}`} />
-        <div className={`font-semibold ${T.text}`}>No call history</div>
-        <div className={`${T.muted} text-sm mt-1`}>Voice and video calls will appear here.</div>
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto relative min-h-full">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text}`}>Calls</h2>
+        <div className={`${T.badge} px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 ${T.text}`}>
+          <span className={`w-2 h-2 rounded-full ${connected ? "bg-[#25d366]" : "bg-gray-400"}`} />
+          {connected ? "Connected" : "Not connected"}
+        </div>
       </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {filters.map((f) => (
+          // TODO: filter when backend data available
+          <button key={f} onClick={()=>setFilter(f)} className={`${filter===f?T.chipActive:T.chipIdle} px-3 py-1 rounded-full text-xs font-medium capitalize`}>{f}</button>
+        ))}
+      </div>
+      <div className={`${T.panel} p-8 text-center`}>
+        {calls.length === 0 ? (
+          <>
+            <svg viewBox="0 0 64 64" className="w-14 h-14 mx-auto mb-3 opacity-60"><path d="M16 14c0-2 2-4 4-4h6l3 9-5 4c2 6 7 11 13 13l4-5 9 3v6c0 2-2 4-4 4C28 44 14 30 14 14z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/></svg>
+            <div className={`font-semibold ${T.text}`}>No call history</div>
+            <div className={`${T.muted} text-sm mt-1`}>Call history will appear here once WhatsApp is connected.</div>
+          </>
+        ) : null}
+      </div>
+      <button
+        onClick={() => { /* TODO: initiate call via backend */ }}
+        className={`${T.btn} fixed md:absolute bottom-20 md:bottom-6 right-6 w-14 h-14 rounded-full shadow-lg grid place-items-center`}
+        aria-label="New call">
+        <Phone className="w-5 h-5" />
+      </button>
     </div>
   );
 }
@@ -1508,6 +1704,8 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
     { id: "chats",         label: "Chats",         icon: MessageSquare },
     { id: "storage",       label: "Storage & data",icon: Database },
     { id: "shortcuts",     label: "Shortcuts",     icon: Keyboard },
+    { id: "pet",           label: "Pet companion", icon: Sparkles },
+    { id: "density",       label: "Density",       icon: Zap },
     { id: "help",          label: "Help",          icon: HelpCircle },
   ];
   const set = (patch) => setSettings({ ...settings, ...patch });
@@ -1685,6 +1883,52 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
             </div>
           )}
 
+          {section === "pet" && (
+            <div className={`${T.panel} p-5 space-y-3`}>
+              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🐾 Pet companion</div></div>
+              <ToggleRow T={T} label="Enable pet companion" hint="A floating buddy that cheers you on." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
+              {settings.petEnabled && (
+                <>
+                  <div className={`text-xs ${T.muted} mt-2`}>Style</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.entries(PET_PRESETS).map(([k, p]) => (
+                      <button key={k} onClick={() => set({ petChoice: k })}
+                        className={`${T.panelSoft} p-3 text-center ${settings.petChoice === k ? "ring-2 ring-[#25d366]" : ""}`}>
+                        <div className="text-3xl">{p.emoji}</div>
+                        <div className={`mt-1 text-sm font-medium ${T.text}`}>{p.name}</div>
+                        <div className={`text-[11px] ${T.muted}`}>{p.blurb}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`text-xs ${T.muted} mt-2`}>Aura color</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {AURA_COLORS.map((c) => (
+                      <button key={c} onClick={() => set({ petAura: c })}
+                        className={`w-7 h-7 rounded-full border ${settings.petAura === c ? "ring-2 ring-[#25d366] ring-offset-2" : "border-black/10"}`}
+                        style={{ background: c }} aria-label={`aura ${c}`} />
+                    ))}
+                  </div>
+                  <div className={`text-xs ${T.muted} mt-2`}>Position</div>
+                  <div className="flex gap-2">
+                    {["left","right"].map((s) => (
+                      <button key={s} onClick={() => set({ petSide: s })}
+                        className={`${settings.petSide === s ? T.chipActive : T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium capitalize`}>
+                        Bottom {s}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {section === "density" && (
+            <div className={`${T.panel} p-5 space-y-3`}>
+              <div className="flex items-center gap-2 mb-1"><Zap className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>⚡ Board density</div></div>
+              <ToggleRow T={T} label="Compact mode" hint="Tighter card padding and smaller text on boards." value={settings.compact} onChange={(v)=>set({ compact: v })} />
+            </div>
+          )}
+
           {section === "help" && (
             <div className={`${T.panel} p-5 space-y-2`}>
               <div className="flex items-center gap-2 mb-2"><HelpCircle className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Help & About</div></div>
@@ -1714,7 +1958,136 @@ const DEFAULT_SETTINGS = {
   notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
   readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
   wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
+  petEnabled: false, petChoice: "cat", petAura: "#25d366", petSide: "right",
+  compact: false,
 };
+
+const PET_PRESETS = {
+  cat:   { name: "Mochi",  emoji: "🐱", blurb: "Calm and curious." },
+  bear:  { name: "Coco",   emoji: "🐻", blurb: "Cuddly companion." },
+  ghost: { name: "Casper", emoji: "👻", blurb: "Quietly cheerful." },
+};
+const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff"];
+
+/* ====================================================================== */
+/* WebPet — floating, draggable, celebrate-aware companion                  */
+/* ====================================================================== */
+function WebPet({ choice, aura, side: initialSide }) {
+  const [pos, setPos] = useState(() => {
+    try { const v = JSON.parse(localStorage.getItem("wp_pet_pos") || "null"); if (v) return v; } catch {}
+    return { side: initialSide || "right", y: typeof window !== "undefined" ? window.innerHeight - 160 : 400 };
+  });
+  const [bubble, setBubble] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const [wiggle, setWiggle] = useState(false);
+  const dragRef = useRef({ active: false, dy: 0 });
+
+  // snooze gate
+  const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; }})();
+  if (snoozeUntil > Date.now()) return null;
+
+  useEffect(() => {
+    const onCelebrate = (e) => {
+      const msg = e?.detail?.message
+        || (e?.detail?.type === "first_visit" ? `Hi! I'm ${PET_PRESETS[choice].name}. I'll keep you company! 👋`
+          : e?.detail?.type === "streak_milestone" ? "Days in a row — you're unstoppable! 🔥"
+          : "Yes!! You did that!! 🎉");
+      setBubble(msg);
+      setCelebrating(true);
+      setTimeout(() => setCelebrating(false), 1800);
+      setTimeout(() => setBubble(null), 4000);
+    };
+    window.addEventListener("webpet:celebrate", onCelebrate);
+    const onKey = (e) => { if (e.key === "Escape") setBubble(null); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("webpet:celebrate", onCelebrate); window.removeEventListener("keydown", onKey); };
+  }, [choice]);
+
+  useEffect(() => {
+    function onMove(e) {
+      if (!dragRef.current.active) return;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      setPos((p) => ({ ...p, y: Math.max(20, Math.min(window.innerHeight - 120, cy - dragRef.current.dy)), _x: cx }));
+    }
+    function onUp() {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      setPos((p) => {
+        const side = (p._x ?? 0) < window.innerWidth / 2 ? "left" : "right";
+        const next = { side, y: p.y };
+        try { localStorage.setItem("wp_pet_pos", JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove);
+    window.addEventListener("touchend", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+  }, []);
+
+  const preset = PET_PRESETS[choice] || PET_PRESETS.cat;
+  const sizeClass = "w-16 h-16 sm:w-24 sm:h-24";
+
+  function startDrag(e) {
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    dragRef.current = { active: true, dy: cy - pos.y };
+  }
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setCollapsed(false)}
+        style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }}
+        className="w-9 h-9 rounded-full bg-white shadow-lg border border-black/10 grid place-items-center text-base">
+        🐾
+      </button>
+    );
+  }
+
+  return (
+    <div
+      style={{ [pos.side]: 20, top: pos.y, position: "fixed", zIndex: 9999 }}
+      className="select-none"
+    >
+      {bubble && (
+        <div className="mb-2 max-w-[220px] rounded-xl bg-white text-[#1E293B] text-xs px-3 py-2 shadow-lg border border-black/10 cursor-pointer"
+          onClick={() => setBubble(null)}>{bubble}</div>
+      )}
+      <div
+        role="img"
+        aria-label={`${preset.name}, your wellness companion`}
+        onMouseDown={startDrag}
+        onTouchStart={startDrag}
+        onClick={() => { setWiggle(true); setTimeout(() => setWiggle(false), 320); }}
+        onDoubleClick={() => setCollapsed(true)}
+        onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o)=>!o); }}
+        className={`${sizeClass} grid place-items-center rounded-full bg-white/70 backdrop-blur cursor-grab active:cursor-grabbing transition-transform ${wiggle ? "scale-110" : ""} ${celebrating ? "animate-bounce" : ""}`}
+        style={{ filter: `drop-shadow(0 0 10px ${aura})` }}
+      >
+        <span className="text-3xl sm:text-5xl">{preset.emoji}</span>
+      </div>
+      {menuOpen && (
+        <div className={`absolute ${pos.side === "right" ? "right-0" : "left-0"} mt-2 w-44 rounded-lg bg-white border border-black/10 shadow-xl text-sm overflow-hidden`}>
+          <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent("webpet:open-settings")); }}
+            className="w-full text-left px-3 py-2 hover:bg-black/5">Settings</button>
+          <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30*60*1000)); } catch {}; window.location.reload(); }}
+            className="w-full text-left px-3 py-2 hover:bg-black/5">Snooze 30 min</button>
+          <button onClick={() => { setMenuOpen(false); setCollapsed(true); }}
+            className="w-full text-left px-3 py-2 hover:bg-black/5">Hide</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
   const T = THEMES[themeKey] || THEMES.default;
@@ -1728,12 +2101,15 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
     ? { ["--wa-glow"]: glowColor, fontSize: settings.fontSize }
     : { fontSize: settings.fontSize };
 
+  // Bottom nav set (mobile) — merge calls into chats per spec
+  const BOTTOM_TABS = TABS.filter((t) => t.id !== "calls");
+
   return (
     <div className={`min-h-screen w-full ${T.bg} flex`} style={styleVars}>
-      {/* Left rail */}
-      <aside className={`${T.sidebar} w-16 md:w-20 lg:w-64 shrink-0 flex flex-col`}>
+      {/* Left rail (md+) */}
+      <aside className={`${T.sidebar} hidden md:flex w-20 lg:w-64 shrink-0 flex-col`}>
         <div className="p-3 md:p-4 flex items-center gap-2 justify-center lg:justify-start">
-          <WALogo size={32} />
+          <WPLogo size={32} />
           <div className={`hidden lg:block font-[var(--font-display)] text-lg font-bold ${T.text}`}>WhatsPlan</div>
         </div>
         <nav className="flex-1 px-2 py-2 space-y-1">
@@ -1768,8 +2144,9 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 min-w-0 flex flex-col">
+      <main className="flex-1 min-w-0 flex flex-col" style={{ minHeight: "100vh" }}>
         <header className={`${T.topbar} h-14 flex items-center px-4 gap-3`}>
+          <div className="md:hidden"><WPLogo size={28} /></div>
           <div className={`font-[var(--font-display)] font-semibold ${T.text} capitalize truncate`}>{tab}</div>
           <div className="ml-auto flex items-center gap-2">
             <div className={`${T.badge} px-2.5 py-1 rounded-full text-xs flex items-center gap-1`}>
@@ -1780,7 +2157,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-auto thin-scroll">
+        <div className="flex-1 overflow-auto thin-scroll pb-16 md:pb-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}
@@ -1800,6 +2177,24 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Mobile bottom nav (≤768px) */}
+      <nav className={`${T.sidebar} md:hidden fixed bottom-0 left-0 right-0 h-14 grid grid-cols-4 z-30 border-t`}>
+        {BOTTOM_TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${active ? T.text : T.muted}`}>
+              <Icon className={`w-5 h-5 ${active ? "text-[#25d366]" : ""}`} />
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* WebPet floats over everything */}
+      {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} />}
     </div>
   );
 }
@@ -1813,6 +2208,8 @@ export default function WhatsPlanApp() {
   const [user, setUser] = useLocal("wp_user", null);
   const [themeKey, setThemeKey] = useLocal("wp_theme", null); // null = not yet picked
   const gam = useGamification();
+  useEffect(() => { document.title = "WhatsPlan"; }, []);
+
 
   return (
     <AnimatePresence mode="wait">
