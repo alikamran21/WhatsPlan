@@ -275,7 +275,6 @@ function WPLogo({ size = 64 }) {
     </svg>
   );
 }
-const WALogo = WPLogo; // back-compat alias for any remaining call sites
 
 /* ====================================================================== */
 /* Splash / entry animation                                                */
@@ -774,22 +773,6 @@ function convertBoard(board, newType) {
   if (newType === "table") return { ...base, columns: ["Title", "Owner", "Status"], rows: items.map((it) => ({ id: crypto.randomUUID(), values: [it.title, it.assignee || "", STATUSES.find((s) => s.id === it.status)?.label || (it.done ? "Done" : "To Do")] })) };
   if (newType === "notes") return { ...base, notes: items.map((it) => ({ id: crypto.randomUUID(), text: it.title + (it.description ? "\n" + it.description : "") })) };
   return { ...base };
-}
-
-/* Plain-text summary of a board — shareable into any chat. */
-function boardToText(board) {
-  const items = boardItems(board);
-  let txt = `📋 ${board.name}\n`;
-  if (!items.length) return txt + "(empty board)";
-  for (const it of items) {
-    const box = (it.done || it.status === "done") ? "✅" : "⬜";
-    const bits = [];
-    if (it.assignee) bits.push("@" + it.assignee);
-    if (it.due) bits.push("due " + it.due);
-    if (it.priority && it.priority !== "medium") bits.push(it.priority);
-    txt += `${box} ${it.title}${bits.length ? "  (" + bits.join(", ") + ")" : ""}\n`;
-  }
-  return txt.trim();
 }
 
 function BoardsView({ T, boards, setBoards, gam }) {
@@ -2632,81 +2615,8 @@ const PET_MESSAGES = {
 
 const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff", "#fbbf24", "#3b82f6"];
 
-/* ====================================================================== */
-/* Hatchling sprite pet — atlas-driven, with a drawn placeholder fallback   */
-/* ====================================================================== */
-/* Layout matches /hatch-pet/scripts: 1536×1872 atlas, 192×208 frames,      */
-/* 8 cols × 9 rows, one animation state per row, ~10fps.                    */
-const HATCH_MANIFEST = {
-  src: "/pets/hatchling/atlas.webp",
-  frameW: 192, frameH: 208, cols: 8, rows: 9, fps: 10,
-  states: {
-    idle:            { row: 0, frames: 8 },
-    "running-right": { row: 1, frames: 8 },
-    "running-left":  { row: 2, frames: 8 },
-    waving:          { row: 3, frames: 8 },
-    jumping:         { row: 4, frames: 8 },
-    failed:          { row: 5, frames: 8 },
-    waiting:         { row: 6, frames: 8 },
-    running:         { row: 7, frames: 8 },
-    review:          { row: 8, frames: 8 },
-  },
-};
-
-/* Drop your exact fox image here for a pixel-perfect pet; until then the drawn
-   fox below is shown. */
+/* The pet's image — your fox (public/pets/fox.png). */
 const FOX_IMG = "/pets/fox.png";
-
-function petMotion(anim) {
-  if (anim === "jumping") return { animate: { y: [0, -16, 0] }, transition: { duration: 0.5, repeat: 2, ease: "easeOut" } };
-  if (anim === "waving") return { animate: { rotate: [0, -7, 7, -7, 0] }, transition: { duration: 0.9 } };
-  return { animate: { y: [0, -3, 0] }, transition: { duration: 2.6, repeat: Infinity, ease: "easeInOut" } };
-}
-
-/* Drawn chibi fox fallback (resembles the reference; for the exact art drop
-   public/pets/fox.png). */
-function FoxPlaceholder({ anim, w, h, aura }) {
-  const m = petMotion(anim);
-  return (
-    <motion.div animate={m.animate} transition={m.transition} style={{ width: w, height: h, filter: `drop-shadow(0 0 10px ${aura})` }}>
-      <svg viewBox="0 0 120 120" width={w} height={h} aria-hidden="true">
-        {/* tail */}
-        <path d="M84 64 C112 60 116 92 102 106 C92 116 78 110 80 98 C90 96 96 84 88 76 C84 72 82 68 84 64 Z" fill="#ef6d2e" stroke="#4a3526" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M92 98 C100 100 100 110 90 112 C86 106 87 101 92 98 Z" fill="#fff1dd" stroke="#4a3526" strokeWidth="2.5" strokeLinejoin="round" />
-        {/* body */}
-        <ellipse cx="54" cy="92" rx="32" ry="24" fill="#f6863b" stroke="#4a3526" strokeWidth="3" />
-        <ellipse cx="54" cy="92" rx="16" ry="18" fill="#fff1dd" />
-        {/* paws */}
-        <ellipse cx="40" cy="110" rx="8" ry="6" fill="#f6863b" stroke="#4a3526" strokeWidth="2.5" />
-        <ellipse cx="68" cy="110" rx="8" ry="6" fill="#f6863b" stroke="#4a3526" strokeWidth="2.5" />
-        {/* head */}
-        <path d="M20 50 C20 28 40 20 56 20 C72 20 92 28 92 50 C92 72 76 82 56 82 C36 82 20 72 20 50 Z" fill="#f6863b" stroke="#4a3526" strokeWidth="3" />
-        {/* ears */}
-        <path d="M22 44 L14 12 L42 32 Z" fill="#f6863b" stroke="#4a3526" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M90 44 L98 12 L70 32 Z" fill="#f6863b" stroke="#4a3526" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M24 38 L19 20 L34 31 Z" fill="#fff1dd" />
-        <path d="M88 38 L93 20 L78 31 Z" fill="#fff1dd" />
-        {/* white muzzle */}
-        <ellipse cx="56" cy="66" rx="23" ry="14" fill="#fff1dd" />
-        {/* blush */}
-        <ellipse cx="33" cy="62" rx="6" ry="4" fill="#ff9bb0" opacity="0.85" />
-        <ellipse cx="79" cy="62" rx="6" ry="4" fill="#ff9bb0" opacity="0.85" />
-        {/* eyes */}
-        <ellipse cx="42" cy="54" rx="7.5" ry="9" fill="#3b2417" />
-        <ellipse cx="70" cy="54" rx="7.5" ry="9" fill="#3b2417" />
-        <circle cx="44" cy="51" r="2.2" fill="#fff" />
-        <circle cx="72" cy="51" r="2.2" fill="#fff" />
-        <circle cx="40" cy="57" r="1.3" fill="#fff" />
-        <circle cx="68" cy="57" r="1.3" fill="#fff" />
-        {/* nose + smile */}
-        <path d="M53 64 L59 64 L56 68 Z" fill="#4a3526" />
-        <path d="M56 68 q-5 6 -10 3 M56 68 q5 6 10 3" fill="none" stroke="#4a3526" strokeWidth="2" strokeLinecap="round" />
-        {/* forehead marks */}
-        <path d="M40 36 l3 6 M72 36 l-3 6" stroke="#ef6d2e" strokeWidth="3" strokeLinecap="round" />
-      </svg>
-    </motion.div>
-  );
-}
 
 function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
   const preset = PET_PRESETS[choice] || PET_PRESETS.fox;

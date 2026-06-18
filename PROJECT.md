@@ -17,11 +17,11 @@ We explored **two** product shapes during development:
 | Direction | Status | Why |
 | --- | --- | --- |
 | **A. Web app** (React + backend, stores data, connects WhatsApp via QR) | ✅ **THIS IS THE PRODUCT** | Chosen by the user. Full boards/pet/premium/DB features. |
-| B. Privacy Chrome extension (on-device, no storage, read-only) | 🧊 Shelved | Built as `extension/` + `otp-service/`, then set aside because it conflicts with the web app's "store data / move chats to boards" model. |
+| B. Privacy Chrome extension (on-device, no storage, read-only) | 🗑️ Removed | Was built (`extension/` + `otp-service/`) then deleted during cleanup. Recoverable from git commit `c58abc4` if ever needed. |
 
-**The web app wins.** The extension code remains in the repo for reference but
-is not the active product. The "100% privacy / no storage / read-only" rules
-from the extension idea **do not apply** to the web app.
+**The web app wins.** The extension was removed during cleanup. The
+"100% privacy / no storage / read-only" rules from that idea **do not apply**
+to the web app.
 
 ---
 
@@ -82,10 +82,9 @@ WhatsPlan/
 │  ├─ serviceAccount.json      ← Firebase admin key (GITIGNORED — see security)
 │  └─ Dockerfile
 │
-├─ hatch-pet/scripts/          ← Python pipeline to generate a pet sprite atlas
-│
-├─ extension/                  ← 🧊 SHELVED privacy Chrome extension (not the product)
-└─ otp-service/                ← 🧊 SHELVED email-OTP service for the extension
+└─ hatch-pet/scripts/          ← (optional) Python pipeline to generate an animated
+                                  pet sprite atlas — unused by the app; kept for the
+                                  Codex animated-pet path in docs/PET_WITH_CODEX.md
 ```
 
 ---
@@ -170,7 +169,6 @@ bun install && bun dev
 - **Firestore currently DISABLED in `server/.env`** (commented out) because the Firestore database hadn't been created in the console — the app uses the local file store. To re-enable: create the DB (Firebase Console → Build → Firestore Database → Create database), uncomment the two `FIREBASE_*` lines, then `docker compose up -d --force-recreate api`.
 - **Calls tab is empty by design** — whatsapp-web.js doesn't expose call history.
 - **Assignee/@mention are free-text / quick-picks** — real WhatsApp contact resolution needs backend wiring.
-- A few **unused pet helpers** remain (`FoxPlaceholder`, `petMotion`, `HATCH_MANIFEST`) — harmless, can be deleted.
 
 ---
 
@@ -196,9 +194,10 @@ bun install && bun dev
 - Pet: environments/outfits/accessories (the broader Finch-style system, only partially built).
 - Multi-user / real accounts (currently single-user = one linked WhatsApp).
 
-**Cleanup:**
-- Remove unused pet helpers.
-- Decide whether to delete or keep the shelved `extension/` + `otp-service/`.
+**Cleanup (done 2026-06-19):**
+- ✅ Removed dead code (`FoxPlaceholder`, `petMotion`, `HATCH_MANIFEST`, `boardToText`, `WALogo`).
+- ✅ Removed the shelved `extension/` + `otp-service/` (recoverable from git commit `c58abc4`).
+- Optional: `hatch-pet/` (Python sprite pipeline) is unused by the app — delete it too if you don't want the animated-pet path.
 
 ---
 
