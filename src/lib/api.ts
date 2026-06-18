@@ -16,6 +16,7 @@ export type SessionState = {
   status: "disconnected" | "initializing" | "qr" | "authenticated" | "ready";
   qr: string | null;
   me: string | null;
+  meName?: string | null;
 };
 export type Chat = { id: string; name: string; isGroup: boolean; lastMessage: string; timestamp: number; unread?: number };
 export type Message = { id: string; chatId: string; chatName: string; isGroup: boolean; from: string; fromName: string; body: string; timestamp: number; fromMe: boolean };

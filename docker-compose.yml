@@ -1,8 +1,37 @@
 services:
-  whatsplan:
+  # ── Backend: WhatsApp listener + Gemini classifier + API ──────────────
+  api:
+    build: ./server
+    ports:
+      - "4000:4000"
+    env_file:
+      # Optional — copy server/.env.example to server/.env to set your
+      # GEMINI_API_KEY / Firebase creds. Without it the server still runs
+      # (heuristic classifier + local file store).
+      - path: ./server/.env
+        required: false
+    volumes:
+      # Persists the WhatsApp login + local store so you don't rescan the QR
+      # on every restart.
+      - wa-data:/app/data
+      # Firebase Admin service-account key (read-only). Gitignored — never commit.
+      - ./server/serviceAccount.json:/app/serviceAccount.json:ro
+    restart: unless-stopped
+
+  # ── Frontend: the React/TanStack app (dev server) ─────────────────────
+  web:
     build: .
     ports:
       - "8080:8080"
+    environment:
+      # The browser runs on YOUR machine, so it reaches the API via the
+      # published host port — localhost, not the docker service name.
+      - VITE_API_URL=http://localhost:4000
     volumes:
       - .:/app
       - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  wa-data:

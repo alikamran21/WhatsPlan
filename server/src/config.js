@@ -30,4 +30,12 @@ export const config = {
     .filter(Boolean),
 
   classifyOwn: String(process.env.CLASSIFY_OWN || "").toLowerCase() === "true",
+
+  // Raw chat messages are deleted this many hours after they arrive (the AI
+  // has already extracted meetings/tasks/announcements by then, and those are
+  // kept). Set to 0 to disable auto-purge. Default: 24.
+  retentionHours:
+    process.env.RETENTION_HOURS === undefined || process.env.RETENTION_HOURS === ""
+      ? 24
+      : Number(process.env.RETENTION_HOURS),
 };

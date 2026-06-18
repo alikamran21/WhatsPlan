@@ -441,35 +441,17 @@ function Splash({ onDone }) {
 /* ====================================================================== */
 /* Login                                                                    */
 /* ====================================================================== */
-function Login({ onLogin }) {
-  const [mode, setMode] = useState("signin"); // signin | signup
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [pwd, setPwd] = useState("");
-  const [err, setErr] = useState("");
-  const [qrToken, setQrToken] = useState(() => crypto.randomUUID());
-  const [secondsLeft, setSecondsLeft] = useState(45);
-  const wa = useSession(); // real WhatsApp linking when the backend is up
+function Login() {
+  const wa = useSession();
 
-  // refresh QR like WhatsApp Web
+  // Auto-boot the WhatsApp session as soon as the backend is reachable.
   useEffect(() => {
-    const iv = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) { setQrToken(crypto.randomUUID()); return 45; }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(iv);
-  }, []);
+    if (wa.online && wa.status === "disconnected") wa.start();
+    // eslint-disable-next-line
+  }, [wa.online, wa.status]);
 
-  function submit(e) {
-    e.preventDefault();
-    if (mode === "signup" && !name) { setErr("What should we call you?"); return; }
-    if (!email || !pwd) { setErr("Enter your email and password."); return; }
-    if (!email.includes("@")) { setErr("That doesn't look like an email."); return; }
-    if (pwd.length < 4) { setErr("Password should be at least 4 characters."); return; }
-    onLogin({ email, name: name || email.split("@")[0] });
-  }
+  const showQr = wa.online && wa.status === "qr" && wa.qr;
+  const ready = wa.status === "ready";
 
   return (
     <div className="min-h-screen w-full wa-bg-default flex items-center justify-center p-4">
@@ -479,174 +461,81 @@ function Login({ onLogin }) {
         initial={{ y: 24, opacity: 0, scale: 0.96 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 120, damping: 18 }}
-        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-[#e9edef] overflow-hidden grid grid-cols-1 md:grid-cols-[1.05fr_1fr]"
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-[#e9edef] overflow-hidden p-7 sm:p-9 flex flex-col items-center"
       >
-        {/* LEFT: form */}
-        <div className="p-7 sm:p-9 flex flex-col">
-          <div className="flex items-center gap-3">
-            <WPLogo size={44} />
-            <div>
-              <div className="font-[var(--font-display)] text-xl font-bold tracking-tight text-[#111b21]">WhatsPlan</div>
-              <div className="text-[#54656f] text-xs">Chat-powered planning</div>
-            </div>
-          </div>
-
-          <div className="mt-7 flex gap-1 bg-[#f0f2f5] rounded-lg p-1">
-            {[{ k: "signin", label: "Sign in" }, { k: "signup", label: "Create account" }].map((t) => (
-              <button
-                key={t.k}
-                onClick={() => { setMode(t.k); setErr(""); }}
-                className={`flex-1 text-sm font-medium py-2 rounded-md transition ${
-                  mode === t.k ? "bg-white text-[#111b21] shadow-sm" : "text-[#54656f] hover:text-[#111b21]"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={submit} className="mt-5 space-y-3">
-            {mode === "signup" && (
-              <label className="block">
-                <span className="text-xs font-medium text-[#54656f]">Display name</span>
-                <div className="mt-1 flex items-center gap-2 border border-[#e9edef] rounded-lg px-3 py-2 focus-within:border-[#00a884]">
-                  <User className="w-4 h-4 text-[#54656f]" />
-                  <input
-                    value={name} onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    className="flex-1 outline-none text-sm text-[#111b21] placeholder:text-[#8696a0] bg-transparent"
-                  />
-                </div>
-              </label>
-            )}
-            <label className="block">
-              <span className="text-xs font-medium text-[#54656f]">Email</span>
-              <div className="mt-1 flex items-center gap-2 border border-[#e9edef] rounded-lg px-3 py-2 focus-within:border-[#00a884]">
-                <Mail className="w-4 h-4 text-[#54656f]" />
-                <input
-                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="flex-1 outline-none text-sm text-[#111b21] placeholder:text-[#8696a0] bg-transparent"
-                />
-              </div>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-[#54656f]">Password</span>
-              <div className="mt-1 flex items-center gap-2 border border-[#e9edef] rounded-lg px-3 py-2 focus-within:border-[#00a884]">
-                <KeyRound className="w-4 h-4 text-[#54656f]" />
-                <input
-                  type="password" value={pwd} onChange={(e) => setPwd(e.target.value)}
-                  placeholder="••••••••"
-                  className="flex-1 outline-none text-sm text-[#111b21] placeholder:text-[#8696a0] bg-transparent"
-                />
-              </div>
-            </label>
-
-            {err && <div className="text-xs text-red-600">{err}</div>}
-
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#00a884] hover:bg-[#017561] text-white font-medium py-2.5 rounded-lg transition shadow-md"
-            >
-              {mode === "signin" ? "Sign in" : "Create account"} <ArrowRight className="w-4 h-4" />
-            </motion.button>
-          </form>
-
-          <div className="mt-5 rounded-lg bg-[#f0f2f5] p-3 text-xs text-[#54656f] flex gap-2">
-            <Lock className="w-4 h-4 shrink-0 mt-0.5 text-[#00a884]" />
-            <span>End-to-end encrypted. We mirror selected WhatsApp chats only — the WhatsPlan agent surfaces what matters and parks the rest.</span>
+        <div className="flex items-center gap-3 self-start">
+          <WPLogo size={44} />
+          <div>
+            <div className="font-[var(--font-display)] text-xl font-bold tracking-tight text-[#111b21]">WhatsPlan</div>
+            <div className="text-[#54656f] text-xs">Sign in with WhatsApp</div>
           </div>
         </div>
 
-        {/* RIGHT: QR pane */}
-        <div className="relative bg-gradient-to-br from-[#f0fdf4] via-white to-[#ecfdf5] border-t md:border-t-0 md:border-l border-[#e9edef] p-7 sm:p-9 flex flex-col items-center justify-center">
-          <div className="text-center mb-5">
-            <div className="inline-flex items-center gap-2 text-[#008069] font-semibold">
-              <Smartphone className="w-4 h-4" /> Link with WhatsApp
+        <div className="text-center mt-6 mb-4">
+          <div className="inline-flex items-center gap-2 text-[#008069] font-semibold">
+            <Smartphone className="w-4 h-4" /> Link your WhatsApp to continue
+          </div>
+          <p className="text-xs text-[#54656f] mt-1 max-w-xs">
+            Open WhatsApp → <b>Settings</b> → <b>Linked devices</b> → <b>Link a device</b>, then scan the code.
+          </p>
+        </div>
+
+        {/* QR / status card */}
+        <div className="relative p-4 bg-white rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,128,105,0.45)] border border-[#d1f0e1]">
+          {showQr ? (
+            <img src={wa.qr} alt="WhatsApp link QR" width={224} height={224} className="rounded-lg" />
+          ) : ready ? (
+            <div className="w-56 h-56 flex flex-col items-center justify-center gap-2 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#25d366] grid place-items-center"><Check className="w-8 h-8 text-white" /></div>
+              <div className="font-semibold text-[#0b3a32]">Linked!</div>
+              <div className="text-xs text-[#54656f]">Opening WhatsPlan…</div>
             </div>
-            <p className="text-xs text-[#54656f] mt-1 max-w-xs">
-              Open WhatsApp → <b>Settings</b> → <b>Linked devices</b> → <b>Link a device</b>, then scan this code.
-            </p>
-          </div>
-
-          <motion.div
-            key={wa.online ? `${wa.status}-${wa.qr ? "q" : "n"}` : qrToken}
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            className="relative p-4 bg-white rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,128,105,0.45)] border border-[#d1f0e1]"
-          >
-            {wa.online && wa.status === "ready" ? (
-              <div className="w-[208px] h-[208px] flex flex-col items-center justify-center text-center gap-2">
-                <div className="w-16 h-16 rounded-full bg-[#25d366] grid place-items-center"><Check className="w-8 h-8 text-white" /></div>
-                <div className="font-semibold text-[#0b3a32]">WhatsApp linked</div>
-                <div className="text-xs text-[#54656f] break-all px-2">{wa.me}</div>
-              </div>
-            ) : wa.online && wa.qr ? (
-              <img src={wa.qr} alt="WhatsApp link QR" width={208} height={208} className="rounded-lg" />
-            ) : (
-              <>
-                <QRCodeSVG
-                  value={`whatsplan://link?token=${qrToken}`}
-                  size={208}
-                  fgColor="#0b3a32"
-                  bgColor="#ffffff"
-                  level="H"
-                  imageSettings={{ src: "", height: 0, width: 0, excavate: false }}
-                />
-                {/* center logo overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="bg-white rounded-xl p-1.5 shadow-md">
-                    <WPLogo size={36} />
-                  </div>
-                </div>
-              </>
-            )}
-            {/* corner accents */}
-            {[
-              "top-1 left-1 border-t-2 border-l-2",
-              "top-1 right-1 border-t-2 border-r-2",
-              "bottom-1 left-1 border-b-2 border-l-2",
-              "bottom-1 right-1 border-b-2 border-r-2",
-            ].map((c, i) => (
-              <div key={i} className={`absolute w-5 h-5 border-[#25d366] rounded-md ${c}`} />
-            ))}
-          </motion.div>
-
-          {wa.online ? (
-            wa.status === "ready" ? (
-              <div className="mt-4 text-xs text-[#008069] font-medium">Device linked — you're all set.</div>
-            ) : wa.status === "qr" ? (
-              <button onClick={wa.start} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium">
-                <RefreshCw className="w-3.5 h-3.5" /> Refresh code
-              </button>
-            ) : (
-              <button onClick={wa.start} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium">
-                <Smartphone className="w-3.5 h-3.5" /> {wa.status === "initializing" || wa.status === "authenticated" ? "Starting…" : "Generate link code"}
-              </button>
-            )
+          ) : !wa.online ? (
+            <div className="w-56 h-56 flex flex-col items-center justify-center gap-3 text-center px-4">
+              <WifiOff className="w-10 h-10 text-amber-500" />
+              <div className="font-semibold text-[#0b3a32]">Backend offline</div>
+              <div className="text-xs text-[#54656f]">Start the server, then this page links automatically.</div>
+            </div>
           ) : (
-            <button
-              onClick={() => { setQrToken(crypto.randomUUID()); setSecondsLeft(45); }}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh code · {secondsLeft}s
-            </button>
+            <div className="w-56 h-56 flex flex-col items-center justify-center gap-3 text-center">
+              <div className="w-10 h-10 rounded-full border-4 border-[#25d366] border-t-transparent animate-spin" />
+              <div className="font-semibold text-[#0b3a32]">{wa.status === "authenticated" ? "Authenticating…" : "Starting WhatsApp…"}</div>
+              <div className="text-xs text-[#54656f]">Booting a secure session.</div>
+            </div>
           )}
+          {/* corner accents */}
+          {[
+            "top-1 left-1 border-t-2 border-l-2",
+            "top-1 right-1 border-t-2 border-r-2",
+            "bottom-1 left-1 border-b-2 border-l-2",
+            "bottom-1 right-1 border-b-2 border-r-2",
+          ].map((c, i) => (
+            <div key={i} className={`absolute w-5 h-5 border-[#25d366] rounded-md ${c}`} />
+          ))}
+        </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2 text-[10px] text-[#54656f] max-w-xs">
-            {[
-              { n: "1", t: "Open WhatsApp" },
-              { n: "2", t: "Linked devices" },
-              { n: "3", t: "Scan code" },
-            ].map((s) => (
-              <div key={s.n} className="bg-white border border-[#e9edef] rounded-lg p-2 text-center">
-                <div className="w-5 h-5 mx-auto rounded-full bg-[#25d366] text-white text-[10px] font-bold flex items-center justify-center">{s.n}</div>
-                <div className="mt-1">{s.t}</div>
-              </div>
-            ))}
-          </div>
+        {(showQr || !wa.online) && (
+          <button onClick={wa.start} className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#008069] hover:text-[#006652] font-medium">
+            <RefreshCw className="w-3.5 h-3.5" /> {wa.online ? "Refresh code" : "Retry"}
+          </button>
+        )}
+
+        <div className="mt-5 grid grid-cols-3 gap-2 text-[10px] text-[#54656f] max-w-xs">
+          {[
+            { n: "1", t: "Open WhatsApp" },
+            { n: "2", t: "Linked devices" },
+            { n: "3", t: "Scan code" },
+          ].map((s) => (
+            <div key={s.n} className="bg-white border border-[#e9edef] rounded-lg p-2 text-center">
+              <div className="w-5 h-5 mx-auto rounded-full bg-[#25d366] text-white text-[10px] font-bold flex items-center justify-center">{s.n}</div>
+              <div className="mt-1">{s.t}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 rounded-lg bg-[#f0f2f5] p-3 text-xs text-[#54656f] flex gap-2">
+          <Lock className="w-4 h-4 shrink-0 mt-0.5 text-[#00a884]" />
+          <span>Your WhatsApp number is your WhatsPlan identity — no passwords. We only read your selected chats and never auto-reply.</span>
         </div>
       </motion.div>
     </div>
@@ -1565,33 +1454,17 @@ function fmtDateTime(iso) {
 }
 
 /* Connection banner shared by Chats and Planner */
+/* Linking happens at the login gate, so inside the app you're always linked.
+   The only state still worth surfacing here is the backend dropping offline. */
 function ConnectBanner({ T, session }) {
-  if (!session.online) {
-    return (
-      <div className="rounded-lg p-3 bg-amber-500/15 border border-amber-500/40 flex items-center gap-2">
-        <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className={`text-xs font-semibold ${T.text}`}>Backend offline</div>
-          <div className={`text-[11px] ${T.muted}`}>Start the server: <code>cd server &amp;&amp; npm run dev</code></div>
-        </div>
-      </div>
-    );
-  }
-  if (session.status === "ready") return null;
+  if (session.online) return null;
   return (
-    <div className="rounded-lg p-3 bg-[#25d366]/15 border border-[#25d366]/40 flex items-center gap-2">
-      <ShieldCheck className="w-4 h-4 text-[#128c7e] shrink-0" />
+    <div className="rounded-lg p-3 bg-amber-500/15 border border-amber-500/40 flex items-center gap-2">
+      <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className={`text-xs font-semibold ${T.text}`}>
-          {session.status === "qr" ? "Scan to link WhatsApp" : session.status === "initializing" || session.status === "authenticated" ? "Connecting…" : "WhatsApp not linked"}
-        </div>
-        <div className={`text-[11px] ${T.muted}`}>
-          {session.status === "qr" ? "Open WhatsApp → Linked devices → scan the code." : "Link your account to capture chats."}
-        </div>
+        <div className={`text-xs font-semibold ${T.text}`}>Backend offline</div>
+        <div className={`text-[11px] ${T.muted}`}>Reconnecting… start the server if it's stopped.</div>
       </div>
-      {session.status !== "qr" && (
-        <button onClick={session.start} className={`${T.btn} text-xs px-3 py-1 rounded-md font-medium shrink-0`}>Connect</button>
-      )}
     </div>
   );
 }
@@ -1632,12 +1505,6 @@ function ChatsView({ T, wallpaper }) {
             <Search className="w-4 h-4 opacity-60" />
             <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
           </div>
-          {session.status === "qr" && session.qr && (
-            <div className={`${T.panelSoft} p-3 flex flex-col items-center gap-2`}>
-              <img src={session.qr} alt="Link WhatsApp" className="w-40 h-40 rounded-lg bg-white p-1" />
-              <div className={`text-[11px] ${T.muted} text-center`}>WhatsApp → Linked devices → scan</div>
-            </div>
-          )}
           <ConnectBanner T={T} session={session} />
         </div>
         <div className="flex-1 overflow-auto thin-scroll">
@@ -2043,14 +1910,16 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
             <div className={`${T.panel} p-5`}>
               <div className="flex items-center gap-3">
                 <div className={`${T.accent} w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg`}>
-                  {(user?.name?.[0] || user?.email?.[0] || "U").toUpperCase()}
+                  {(user?.name?.[0] || "U").toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className={`font-semibold truncate ${T.text}`}>{user?.name || user?.email || "Guest"}</div>
-                  <div className={`text-xs ${T.muted} truncate`}>{user?.email}</div>
-                  <div className={`text-[11px] ${T.muted} mt-0.5`}>WhatsApp link · pending backend</div>
+                  <div className={`font-semibold truncate ${T.text}`}>{user?.name || "You"}</div>
+                  <div className={`text-xs ${T.muted} truncate`}>{user?.wid ? "+" + String(user.wid).replace(/@.*$/, "") : ""}</div>
+                  <div className={`text-[11px] ${T.muted} mt-0.5 inline-flex items-center gap-1`}>
+                    <ShieldCheck className="w-3 h-3 text-[#25d366]" /> Signed in with WhatsApp
+                  </div>
                 </div>
-                <button onClick={onLogout} className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 shrink-0`}>
+                <button onClick={onLogout} title="Unlinks WhatsApp" className={`${T.btnGhost} px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 shrink-0`}>
                   <LogOut className="w-4 h-4" /> Sign out
                 </button>
               </div>
@@ -2516,21 +2385,25 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
 /* ====================================================================== */
 export default function WhatsPlanApp() {
   const [splashDone, setSplashDone] = useState(false);
-  const [user, setUser] = useLocal("wp_user", null);
   const [themeKey, setThemeKey] = useLocal("wp_theme", null); // null = not yet picked
   const gam = useGamification();
-  useEffect(() => { document.title = "WhatsPlan"; }, []);
+  const wa = useSession();
 
+  // Your WhatsApp link IS your login. Identity = your WhatsApp account.
+  const linked = wa.status === "ready";
+  const user = linked ? { id: wa.me, wid: wa.me, name: wa.meName || (wa.me ? wa.me.split("@")[0] : "You") } : null;
+
+  useEffect(() => { document.title = "WhatsPlan"; }, []);
 
   return (
     <AnimatePresence mode="wait">
       {!splashDone && <Splash key="splash" onDone={() => setSplashDone(true)} />}
-      {splashDone && !user && (
+      {splashDone && !linked && (
         <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <Login onLogin={(u) => setUser(u)} />
+          <Login />
         </motion.div>
       )}
-      {splashDone && user && !themeKey && (
+      {splashDone && linked && !themeKey && (
         <motion.div key="picker" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <ThemePicker
             current={themeKey}
@@ -2538,11 +2411,11 @@ export default function WhatsPlanApp() {
           />
         </motion.div>
       )}
-      {splashDone && user && themeKey && (
+      {splashDone && linked && themeKey && (
         <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <AppShell
             user={user} themeKey={themeKey} setTheme={setThemeKey} gam={gam}
-            onLogout={() => { setUser(null); }}
+            onLogout={() => { api.logout(); }}
           />
         </motion.div>
       )}

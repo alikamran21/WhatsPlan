@@ -24,10 +24,11 @@ export class WhatsAppService extends EventEmitter {
     this.status = "disconnected"; // disconnected | initializing | qr | authenticated | ready
     this.qrDataUrl = null;
     this.me = null;
+    this.meName = null;
   }
 
   getState() {
-    return { status: this.status, qr: this.qrDataUrl, me: this.me };
+    return { status: this.status, qr: this.qrDataUrl, me: this.me, meName: this.meName };
   }
 
   _setStatus(status) {
@@ -43,7 +44,10 @@ export class WhatsAppService extends EventEmitter {
       authStrategy: new LocalAuth({ dataPath: AUTH_PATH }),
       puppeteer: {
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        // In Docker we use the system Chromium installed in the image.
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        // --disable-dev-shm-usage is important in containers (small /dev/shm).
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
       },
     });
 
@@ -58,6 +62,7 @@ export class WhatsAppService extends EventEmitter {
     this.client.on("ready", async () => {
       this.qrDataUrl = null;
       this.me = this.client.info?.wid?._serialized || null;
+      this.meName = this.client.info?.pushname || null;
       this._setStatus("ready");
       try {
         await this.syncChats();
@@ -92,6 +97,7 @@ export class WhatsAppService extends EventEmitter {
     }
     this.client = null;
     this.me = null;
+    this.meName = null;
     this.qrDataUrl = null;
     this._setStatus("disconnected");
     return this.getState();
@@ -162,6 +168,12 @@ export class WhatsAppService extends EventEmitter {
 
     const cls = await classifyMessage(record);
     await this.applyClassification(record, cls);
+    // Mark as AI-read so the retention sweep knows it's been processed.
+    await this.store.upsert("messages", record.id, {
+      classified: true,
+      classifiedAt: Date.now(),
+      category: cls.category,
+    });
   }
 
   async applyClassification(msg, cls) {

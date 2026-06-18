@@ -6,6 +6,7 @@ import { config } from "./config.js";
 import { createStore } from "./store/index.js";
 import { WhatsAppService } from "./whatsapp/client.js";
 import { registerRoutes } from "./routes.js";
+import { startRetention } from "./retention.js";
 
 const app = express();
 app.use(cors({ origin: config.corsOrigin }));
@@ -29,6 +30,9 @@ io.on("connection", (socket) => {
 for (const event of ["status", "qr", "message", "item"]) {
   wa.on(event, (payload) => io.emit(event, payload));
 }
+
+// Auto-delete raw chat messages after RETENTION_HOURS (default 24h).
+startRetention(store, (count) => io.emit("purged", { count }));
 
 server.listen(config.port, () => {
   console.log(`\nWhatsPlan backend → http://localhost:${config.port}`);
