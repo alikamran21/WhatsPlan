@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/WhatsPlan-Business-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsPlan" height="36"/>
+<img src="https://img.shields.io/badge/WhatsPlan-Companion-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsPlan" height="36"/>
 
 # WhatsPlan
 
