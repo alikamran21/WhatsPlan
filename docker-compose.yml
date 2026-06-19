@@ -2,6 +2,9 @@ services:
   # ── Backend: WhatsApp listener + Gemini classifier + API ──────────────
   api:
     build: ./server
+    # Headless Chromium (whatsapp-web.js) crashes with "Target closed" when the
+    # container's shared memory is too small. Give it a roomy /dev/shm.
+    shm_size: "1gb"
     ports:
       - "4000:4000"
     environment:
@@ -9,11 +12,10 @@ services:
       # overridden by an empty value in server/.env).
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     env_file:
-      # Optional — copy server/.env.example to server/.env to set your
-      # GEMINI_API_KEY / Firebase creds. Without it the server still runs
-      # (heuristic classifier + local file store).
-      - path: ./server/.env
-        required: false
+      # Loads server/.env into the container (EMAIL_PROVIDER, keys, etc.).
+      # Simple form so it works on every Compose version. Create it first:
+      # copy server/.env.example to server/.env.
+      - ./server/.env
     volumes:
       # Persists the WhatsApp login + local store so you don't rescan the QR
       # on every restart.

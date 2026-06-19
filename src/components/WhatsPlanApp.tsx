@@ -13,7 +13,7 @@ import {
   Clock, Tag, AlignLeft, Zap, MessageCircle, RefreshCw, Share2, Copy, Link as LinkIcon,
   WifiOff, ExternalLink, Pin,
 } from "lucide-react";
-import { useSession, useChats, useMessages, usePlanner, useBoards, useSyncedDoc, api } from "@/lib/api";
+import { useSession, useChats, useMessages, usePlanner, useBoards, useSyncedDoc, useVerification, api } from "@/lib/api";
 
 /* ====================================================================== */
 /* THEMES — every theme uses the WhatsApp green palette                   */
@@ -1861,16 +1861,296 @@ function ConnectBanner({ T, session }) {
 }
 
 /* ====================================================================== */
+/* AiToggle — the green pill switch on each chat row                        */
+/* ====================================================================== */
+function AiToggle({ on, onClick, T, busy }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      role="switch"
+      aria-checked={on}
+      title={on ? "AI reading is ON — sorting this chat into meetings, tasks & notices" : "Turn on AI reading for this chat"}
+      className={`shrink-0 w-9 h-5 rounded-full transition relative disabled:opacity-60 ${on ? "bg-[#25d366]" : "bg-black/25"}`}>
+      <span className={`absolute top-0.5 ${on ? "left-[18px]" : "left-0.5"} w-4 h-4 rounded-full bg-white shadow transition-all`} />
+    </button>
+  );
+}
+
+/* ====================================================================== */
+/* VerifyDialog — email OTP gate for turning AI reading on                  */
+/* ====================================================================== */
+function VerifyDialog({ T, open, onClose, onVerified, defaultEmail }) {
+  const [step, setStep] = useState("email"); // "email" | "code"
+  const [email, setEmail] = useState(defaultEmail || "");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [devCode, setDevCode] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setStep("email");
+      setCode("");
+      setError("");
+      setDevCode("");
+      setEmail(defaultEmail || "");
+    }
+  }, [open, defaultEmail]);
+
+  if (!open) return null;
+
+  async function sendCode() {
+    setError("");
+    const e = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setError("Enter a valid email address."); return; }
+    setBusy(true);
+    try {
+      const r = await api.requestOtp(e);
+      setStep("code");
+      if (r?.devCode) setDevCode(r.devCode);
+    } catch (err) {
+      setError(err?.message || "Couldn't send the code. Is the backend running?");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify() {
+    setError("");
+    const c = code.trim();
+    if (c.length < 6) { setError("Enter the 6-digit code."); return; }
+    setBusy(true);
+    try {
+      await api.confirmOtp(c);
+      onVerified?.(email.trim());
+    } catch (err) {
+      setError(err?.message || "Incorrect code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className={`${T.panel} w-full max-w-sm p-5 relative`}>
+        <button onClick={onClose} className={`${T.btnGhost} absolute top-3 right-3 w-8 h-8 rounded-full grid place-items-center`}>
+          <X className="w-4 h-4" />
+        </button>
+        <div className={`${T.accent} w-11 h-11 rounded-xl grid place-items-center mb-3`}>
+          <ShieldCheck className="w-5 h-5" />
+        </div>
+        <div className={`font-[var(--font-display)] text-lg font-bold ${T.text}`}>Verify your email</div>
+        <p className={`text-sm ${T.muted} mt-1`}>
+          {step === "email"
+            ? (defaultEmail
+                ? <>We'll send a 6-digit code to your saved email. Edit it below if it's changed.</>
+                : "AI reading turns this chat into meetings, tasks & notices. Add your email to switch it on — we'll remember it.")
+            : <>Enter the 6-digit code we sent to <span className="font-medium">{email}</span>.</>}
+        </p>
+
+        {step === "email" ? (
+          <div className="mt-4 space-y-3">
+            <div className={`${T.input} flex items-center gap-2 rounded-lg px-3 py-2`}>
+              <Mail className="w-4 h-4 opacity-60" />
+              <input
+                autoFocus
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendCode()}
+                placeholder="you@example.com"
+                className="flex-1 bg-transparent outline-none text-sm" />
+            </div>
+            {error && <div className="text-xs text-red-500">{error}</div>}
+            <button onClick={sendCode} disabled={busy}
+              className={`${T.btn} w-full rounded-lg py-2 text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60`}>
+              {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              Send code
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <div className={`${T.input} flex items-center gap-2 rounded-lg px-3 py-2`}>
+              <KeyRound className="w-4 h-4 opacity-60" />
+              <input
+                autoFocus
+                inputMode="numeric"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onKeyDown={(e) => e.key === "Enter" && verify()}
+                placeholder="000000"
+                className="flex-1 bg-transparent outline-none text-base tracking-[0.5em] font-mono" />
+            </div>
+            {devCode && (
+              <div className={`text-[11px] ${T.muted}`}>
+                Dev mode (no email configured) — your code is <span className="font-mono font-semibold">{devCode}</span>
+              </div>
+            )}
+            {error && <div className="text-xs text-red-500">{error}</div>}
+            <button onClick={verify} disabled={busy}
+              className={`${T.btn} w-full rounded-lg py-2 text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60`}>
+              {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Verify &amp; turn on
+            </button>
+            <button onClick={() => { setStep("email"); setError(""); }}
+              className={`${T.btnGhost} w-full rounded-lg py-1.5 text-xs`}>
+              Use a different email
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+/* ====================================================================== */
+/* AccountEmailCard — set/change the email + verify, from Settings          */
+/* ====================================================================== */
+function AccountEmailCard({ T }) {
+  const verification = useVerification();
+  const [email, setEmail] = useState("");
+  const [savedEmail, setSavedEmail] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  // Hydrate the input from the stored email once it loads.
+  useEffect(() => {
+    if (verification.email != null) { setEmail(verification.email); setSavedEmail(verification.email); }
+  }, [verification.email]);
+
+  // Tick once a second while verified so the countdown updates.
+  useEffect(() => {
+    if (!verification.verified) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [verification.verified]);
+
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const dirty = valid && email.trim().toLowerCase() !== (savedEmail || "").toLowerCase();
+  const windowMs = verification.windowMs || 30000;
+  const remainingSec = verification.verified && verification.verifiedAt
+    ? Math.max(0, Math.ceil((verification.verifiedAt + windowMs - now) / 1000))
+    : 0;
+
+  async function save() {
+    if (!dirty) return;
+    setSaving(true);
+    try {
+      const u = await api.putUser(email.trim());
+      setSavedEmail(u.email);
+      verification.reload();
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 1500);
+    } catch { /* surfaced by disabled state */ }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className={`${T.panel} p-5`}>
+      <VerifyDialog
+        T={T}
+        open={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        onVerified={(em) => { verification.markVerified(em); setSavedEmail(em); setVerifyOpen(false); }}
+        defaultEmail={savedEmail || (valid ? email.trim() : "")}
+      />
+      <div className={`font-semibold ${T.text} mb-1 inline-flex items-center gap-2`}>
+        <Mail className="w-4 h-4" /> Email for AI reading
+      </div>
+      <p className={`text-xs ${T.muted} mb-3`}>
+        The verification code is sent here. Verifying unlocks AI reading for {Math.round(windowMs / 1000)}s,
+        then you'll re-verify.
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className={`${T.input} flex items-center gap-2 rounded-lg px-3 py-2 flex-1`}>
+          <Mail className="w-4 h-4 opacity-60" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com" className="flex-1 bg-transparent outline-none text-sm" />
+        </div>
+        <button onClick={save} disabled={saving || !dirty}
+          className={`${T.btnGhost} px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50`}>
+          {justSaved ? "Saved" : "Save"}
+        </button>
+        <button onClick={() => setVerifyOpen(true)} disabled={!valid}
+          className={`${T.btn} px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50`}>
+          <ShieldCheck className="w-4 h-4" /> Verify
+        </button>
+      </div>
+
+      <div className="mt-3 text-xs">
+        {verification.verified ? (
+          <span className="inline-flex items-center gap-1.5 text-[#25d366] font-medium">
+            <ShieldCheck className="w-3.5 h-3.5" /> Verified · re-verify in {remainingSec}s
+          </span>
+        ) : savedEmail ? (
+          <span className={`inline-flex items-center gap-1.5 ${T.muted}`}>
+            <Lock className="w-3.5 h-3.5" /> Not verified — click Verify to enable AI reading
+          </span>
+        ) : (
+          <span className={`inline-flex items-center gap-1.5 ${T.muted}`}>
+            <Info className="w-3.5 h-3.5" /> Add your email, then verify
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ====================================================================== */
 /* ChatsView — wired to the WhatsPlan backend                               */
 /* ====================================================================== */
 function ChatsView({ T, wallpaper }) {
   const session = useSession();
   const chats = useChats();
+  const verification = useVerification();
   const [selectedChat, setSelectedChat] = useState(null);
   const messages = useMessages(selectedChat?.id);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Optimistic per-chat AI flag (server doesn't push a socket event on toggle).
+  const [aiOverrides, setAiOverrides] = useState({});
+  const [aiBusy, setAiBusy] = useState({});
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [pendingChat, setPendingChat] = useState(null);
+
+  const aiOn = (c) => (c.id in aiOverrides ? aiOverrides[c.id] : !!c.aiEnabled);
+
+  async function applyAi(c, val) {
+    setAiOverrides((m) => ({ ...m, [c.id]: val }));
+    setAiBusy((m) => ({ ...m, [c.id]: true }));
+    try {
+      await api.setChatAi(c.id, val);
+    } catch (err) {
+      setAiOverrides((m) => ({ ...m, [c.id]: !val })); // revert
+      if (err?.code === "VERIFY_REQUIRED") { setPendingChat(c); setVerifyOpen(true); }
+    } finally {
+      setAiBusy((m) => ({ ...m, [c.id]: false }));
+    }
+  }
+
+  function toggleAi(c) {
+    const next = !aiOn(c);
+    if (next && !verification.verified) { setPendingChat(c); setVerifyOpen(true); return; }
+    applyAi(c, next);
+  }
+
+  function handleVerified(email) {
+    verification.markVerified(email);
+    setVerifyOpen(false);
+    if (pendingChat) { applyAi(pendingChat, true); setPendingChat(null); }
+  }
 
   const filtered = useMemo(
     () => chats.filter((c) => (c.name || "").toLowerCase().includes(query.toLowerCase())),
@@ -1889,6 +2169,13 @@ function ChatsView({ T, wallpaper }) {
 
   return (
     <div className="flex h-full">
+      <VerifyDialog
+        T={T}
+        open={verifyOpen}
+        onClose={() => { setVerifyOpen(false); setPendingChat(null); }}
+        onVerified={handleVerified}
+        defaultEmail={verification.email}
+      />
       {/* LEFT panel */}
       <div className={`${T.sidebar} w-full md:w-80 shrink-0 flex flex-col ${selectedChat ? "hidden md:flex" : "flex"}`}>
         <div className="p-3 border-b border-current/10 space-y-3">
@@ -1896,9 +2183,13 @@ function ChatsView({ T, wallpaper }) {
             <Search className="w-4 h-4 opacity-60" />
             <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
           </div>
+          <div className={`text-[11px] ${T.muted} flex items-start gap-1.5`}>
+            <Sparkles className="w-3 h-3 mt-0.5 shrink-0 text-[#25d366]" />
+            <span>Toggle a chat on to let WhatsPlan sort it into meetings, tasks &amp; notices.</span>
+          </div>
           <ConnectBanner T={T} session={session} />
         </div>
-        <div className="flex-1 overflow-auto thin-scroll">
+        <div className="flex-1 min-h-0 overflow-auto thin-scroll">
           {filtered.length === 0 ? (
             <div className="p-6 text-center">
               <svg viewBox="0 0 64 64" className="w-16 h-16 mx-auto mb-3 opacity-60"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M20 28h24M20 36h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1910,20 +2201,28 @@ function ChatsView({ T, wallpaper }) {
               {filtered.map((c) => {
                 const active = selectedChat?.id === c.id;
                 return (
-                  <button key={c.id} onClick={() => setSelectedChat(c)}
-                    className={`w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-current/5 ${active ? T.chipActive : "hover:bg-current/5"}`}>
-                    <div className={`${T.accent} w-10 h-10 rounded-full grid place-items-center font-semibold shrink-0`}>
-                      {(c.name || "?").slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`font-medium truncate ${active ? "" : T.text}`}>{c.name}</span>
-                        <span className={`text-[10px] shrink-0 ${active ? "" : T.muted}`}>{fmtTime(c.timestamp)}</span>
+                  <div key={c.id}
+                    className={`w-full px-3 py-2.5 flex items-center gap-3 border-b border-current/5 ${active ? T.chipActive : "hover:bg-current/5"}`}>
+                    <button onClick={() => setSelectedChat(c)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                      <div className={`${T.accent} w-10 h-10 rounded-full grid place-items-center font-semibold shrink-0`}>
+                        {(c.name || "?").slice(0, 1).toUpperCase()}
                       </div>
-                      <div className={`text-xs truncate ${active ? "" : T.muted}`}>{c.lastMessage || (c.isGroup ? "Group" : "")}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`font-medium truncate ${active ? "" : T.text}`}>{c.name}</span>
+                          <span className={`text-[10px] shrink-0 ${active ? "" : T.muted}`}>{fmtTime(c.timestamp)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {aiOn(c) && <Sparkles className="w-3 h-3 shrink-0 text-[#25d366]" />}
+                          <span className={`text-xs truncate ${active ? "" : T.muted}`}>{c.lastMessage || (c.isGroup ? "Group" : "")}</span>
+                        </div>
+                      </div>
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {c.unread ? <span className="bg-[#25d366] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{c.unread}</span> : null}
+                      <AiToggle T={T} on={aiOn(c)} busy={!!aiBusy[c.id]} onClick={() => toggleAi(c)} />
                     </div>
-                    {c.unread ? <span className="bg-[#25d366] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0">{c.unread}</span> : null}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -1950,7 +2249,7 @@ function ChatsView({ T, wallpaper }) {
               </div>
               <div className={`font-semibold ${T.text} truncate`}>{selectedChat?.name || "Chat"}</div>
             </header>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 min-h-0 overflow-auto p-4">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center">
                   <div className={`${T.muted} text-sm`}>No messages yet</div>
@@ -2049,6 +2348,79 @@ function SourceLine({ T, item }) {
   );
 }
 
+/* ====================================================================== */
+/* SorterTester — paste text, watch the AI file it (no WhatsApp needed)      */
+/* ====================================================================== */
+function SorterTester({ T }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const examples = [
+    "Standup on Zoom tomorrow 9am https://zoom.us/j/123",
+    "@Sara please send the report by Friday",
+    "FYI office closed Monday for the public holiday",
+  ];
+
+  async function run(t) {
+    const body = (t ?? text).trim();
+    if (!body) return;
+    setBusy(true); setError(""); setResult(null);
+    try {
+      const r = await api.classifyText(body);
+      setResult(r.classification);
+    } catch (e) {
+      setError(e?.message || "Failed — is the backend running?");
+    } finally { setBusy(false); }
+  }
+
+  const cat = result?.category;
+  const catColor = cat === "meeting" ? "bg-blue-500/15 text-blue-600"
+    : cat === "task" ? "bg-emerald-500/15 text-emerald-600"
+    : cat === "announcement" ? "bg-amber-500/15 text-amber-600"
+    : "bg-gray-500/15 text-gray-500";
+
+  return (
+    <div className={`${T.panel} p-4 mb-5`}>
+      <div className={`font-semibold ${T.text} mb-1 inline-flex items-center gap-2`}><Sparkles className="w-4 h-4 text-[#25d366]" /> Test the AI sorter</div>
+      <p className={`text-xs ${T.muted} mb-3`}>Paste any message — the AI classifies it and, if it's a meeting/task/notice, files it below. No WhatsApp needed.</p>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && run()}
+          placeholder="e.g. standup tomorrow 9am zoom.us/j/123"
+          className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} />
+        <button onClick={() => run()} disabled={busy || !text.trim()}
+          className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50`}>
+          {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Sort it
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        {examples.map((ex) => (
+          <button key={ex} onClick={() => { setText(ex); run(ex); }}
+            className={`${T.chipIdle} text-[11px] px-2 py-1 rounded-full`}>{ex.slice(0, 30)}…</button>
+        ))}
+      </div>
+      {error && <div className="text-xs text-red-500 mt-2">{error}</div>}
+      {result && (
+        <div className={`${T.panelSoft} mt-3 p-3 text-xs space-y-1`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`px-2 py-0.5 rounded-full font-semibold uppercase ${catColor}`}>{cat}</span>
+            <span className={T.muted}>{Math.round((result.confidence || 0) * 100)}% confidence</span>
+            {cat !== "chatter" && <span className="text-[#25d366] font-medium">→ filed under {cat}s ↓</span>}
+          </div>
+          {result.title && <div className={T.text}><b>Title:</b> {result.title}</div>}
+          {result.datetime && <div className={T.text}><b>When:</b> {result.datetime}</div>}
+          {result.link && <div className={T.text}><b>Link:</b> {result.link}</div>}
+          {result.assignee && <div className={T.text}><b>Assignee:</b> {result.assignee}</div>}
+          {result.due && <div className={T.text}><b>Due:</b> {result.due}</div>}
+          {result.summary && <div className={T.muted}>{result.summary}</div>}
+          {cat === "chatter" && <div className={T.muted}>Not actionable — the sorter skips this (nothing filed).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlannerView({ T }) {
   const session = useSession();
   const { meetings, tasks, announcements, patchItem, deleteItem } = usePlanner();
@@ -2073,6 +2445,8 @@ function PlannerView({ T }) {
       </div>
 
       <div className="mb-4"><ConnectBanner T={T} session={session} /></div>
+
+      <SorterTester T={T} />
 
       {/* sub-tabs */}
       <div className="flex flex-wrap gap-2 mb-5">
@@ -2326,6 +2700,8 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
                   </button>
                 </div>
               </div>
+
+              <AccountEmailCard T={T} />
 
               <div className={`${T.panel} p-5`}>
                 <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Smartphone className="w-4 h-4" /> Connect WhatsApp</div>
@@ -2837,7 +3213,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
   const BOTTOM_TABS = TABS.filter((t) => t.id !== "calls");
 
   return (
-    <div className={`min-h-screen w-full ${T.bg} flex`} style={styleVars}>
+    <div className={`h-screen w-full ${T.bg} flex overflow-hidden`} style={styleVars}>
       {/* Left rail (md+) */}
       <aside className={`${T.sidebar} hidden md:flex w-20 lg:w-64 shrink-0 flex-col`}>
         <div className="p-3 md:p-4 flex items-center gap-2 justify-center lg:justify-start">
@@ -2876,7 +3252,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 min-w-0 flex flex-col" style={{ minHeight: "100vh" }}>
+      <main className="flex-1 min-w-0 flex flex-col min-h-0">
         <header className={`${T.topbar} h-14 flex items-center px-4 gap-3`}>
           <div className="md:hidden"><WPLogo size={28} /></div>
           <div className={`font-[var(--font-display)] font-semibold ${T.text} capitalize truncate`}>{tab}</div>
@@ -2889,7 +3265,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-auto thin-scroll pb-16 md:pb-0">
+        <div className="flex-1 min-h-0 overflow-auto thin-scroll pb-16 md:pb-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}

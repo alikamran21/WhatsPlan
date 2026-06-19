@@ -6,217 +6,189 @@
 
 ### Chat, plan, win the day.
 
-**WhatsPlan** is a WhatsApp-flavored planning workspace — kanban boards, tables, roadmaps, calendars, checklists, and notes — built on top of an AI layer that reads your group chat and sorts the noise into meetings, tasks, and announcements automatically.
+**WhatsPlan** listens to your WhatsApp group chats and quietly sorts the noise into **meetings, tasks, and announcements** — so the group keeps talking the way it always has, while the important stuff stops getting lost.
 
 <br/>
 
 [![React 19](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB)](https://react.dev)
-[![TanStack](https://img.shields.io/badge/TanStack_Start-FF4154?style=flat-square&logo=reactquery&logoColor=white)](https://tanstack.com)
+[![TanStack Start](https://img.shields.io/badge/TanStack_Start-FF4154?style=flat-square&logo=reactquery&logoColor=white)](https://tanstack.com/start)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
-[![Claude AI](https://img.shields.io/badge/Claude_AI-D4A27A?style=flat-square&logo=anthropic&logoColor=white)](https://anthropic.com)
-[![Framer Motion](https://img.shields.io/badge/Framer_Motion-black?style=flat-square&logo=framer&logoColor=white)](https://www.framer.com/motion)
-
-<br/>
+[![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](https://ai.google.dev)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
 
 </div>
 
 ---
 
-## ⚡ The Problem
+## ⚡ The problem
 
 Group chats move fast.
 
-> A Zoom link sent at **9:04am** is buried under forty messages by **9:20**.  
-> A task assigned mid-joke gets forgotten.  
+> A Zoom link sent at **9:04am** is buried under forty messages by **9:20**.
+> A task assigned mid-joke gets forgotten.
 > Nobody re-scrolls 200 messages to find a holiday notice from three days ago.
 
-**WhatsPlan listens, classifies, and surfaces** — so the group keeps talking the way it always has, while the important stuff stops getting lost.
+WhatsPlan **reads, classifies, and surfaces** — turning a live chat into an organized planner.
 
 ```
-💬 "standup on Zoom tmrw 9am — zoom.us/j/9284..."   →  📅 MEETING   · 9:00 AM · zoom link extracted
+💬 "standup on Zoom tmrw 9am — zoom.us/j/9284..."   →  📅 MEETING   · 9:00 AM · link extracted
 💬 "@sara can you finish API docs before EOD? 🙏"    →  ✅ TASK      · Assignee: Sara · Due: EOD
-💬 "office closed Friday public holiday 🏖️"          →  📢 NOTICE   · Friday · all-team
-💬 "lmaooo ok see you guys there"                    →  💬 chatter  · skipped
+💬 "office closed Friday public holiday 🏖️"          →  📢 NOTICE    · Friday · all-team
+💬 "lmaooo ok see you guys there"                    →  💬 chatter   · skipped
 ```
 
 ---
 
-## ✅ What's Built
+## 🔄 How it works
 
-### 🎨 Eight Visual Themes
-
-All anchored to WhatsApp's green palette — switchable anytime from Settings.
-
-| Theme | Vibe |
-|---|---|
-| **Classic** | WhatsApp green, familiar and clean |
-| **Dark** | Deep navy, easy on the eyes |
-| **Neo-Brutalist** | High contrast, thick borders, hard shadows |
-| **Skeuomorphic** | Textured surfaces, depth, tactile feel |
-| **Claymorphism** | Soft, rounded, playful 3D |
-| **Glassmorphism** | Frosted-glass surfaces, blur, transparency |
-| **Neon** | Dark background, electric green accents |
-| **Paper & Ink** | Off-white, serif-inspired, minimal |
-
----
-
-### 🗂️ Six Board Types
-
-| Board | Best for |
-|---|---|
-| 📋 **Kanban** | Sprint tasks, drag-drop workflow |
-| 📊 **Table** | Data-dense views, sortable records |
-| 🗺️ **Roadmap** | Timeline milestones, project arcs |
-| 📅 **Calendar** | Date-anchored meetings and deadlines |
-| ✅ **Checklist** | Action lists with streaks and completion |
-| 📝 **Notes** | Free-form capture, announcements |
-
----
-
-### 🤖 AI Message Classification
-
-Paste in chat text → a **Supabase Edge Function** sends it to Claude → every line comes back classified:
-
-```json
-[
-  {
-    "line": "standup on Zoom tmrw 9am — zoom.us/j/9284",
-    "type": "meeting",
-    "time": "09:00",
-    "link": "zoom.us/j/9284",
-    "confidence": 0.97
-  },
-  {
-    "line": "@sara can you finish API docs before EOD?",
-    "type": "task",
-    "assignee": "Sara",
-    "due": "EOD",
-    "confidence": 0.94
-  }
-]
+```
+1. Link WhatsApp        → scan a QR (whatsapp-web.js), no password
+2. Flip a chat's AI on  → a per-chat toggle, gated by email OTP verification
+3. Messages flow in     → each is classified (Gemini, with a keyword fallback)
+4. The Planner fills up  → meetings / tasks / announcements, in real time
 ```
 
----
-
-### 🎮 Gamification Layer
-
-Streaks, badges, and completion tracking keep the team engaged past day one.
-
-- 🔥 Daily streaks — keep the board alive
-- 🏅 Badges — Sprint Master, Zero Inbox, and more
-- 📊 Progress bars — per-board completion tracking
+A chat is only read **after you opt it in** with the toggle — and turning that on requires a one-time **email verification code** (sent via Brevo). The verification stays valid for a short, configurable window, then re-prompts.
 
 ---
 
-### 💾 Local Persistence
+## ✅ Features
 
-Boards, theme choice, and progress all survive a browser refresh via `localStorage` — no account required to get value immediately.
-
----
-
-## ⚠️ Known Limitations
-
-> We'd rather tell you upfront than have you discover these mid-demo. Calling these out is a more credible position in front of judges than overclaiming.
-
-| Limitation | Status | Next step |
-|---|---|---|
-| 📡 **No live WhatsApp connection** | The Chats/Calls tabs are UI placeholders | Wire up Baileys / whatsapp-web.js |
-| 👥 **No shared multi-user sync** | Data lives in one browser's localStorage | Move to real Supabase shared boards |
-| 🔐 **No real authentication** | Login is a UI flow only | Add a backend identity provider |
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
+| | |
 |---|---|
-| **Frontend** | React 19, TanStack Start, Vite, Tailwind CSS, shadcn/ui, Framer Motion |
-| **AI Classification** | Anthropic API (Claude), structured JSON output |
-| **Backend / Edge** | Supabase Edge Functions |
-| **Data** | Supabase (via Lovable Cloud) |
-| **Hosting** | Lovable |
+| 🤖 **AI message sorting** | Every message → meeting / task / announcement / chatter, with time, link, assignee & due-date extraction. Gemini-powered, with a built-in heuristic fallback so it works with no key. |
+| 🔌 **Live WhatsApp** | Real device link via `whatsapp-web.js`. Read-only by default for account safety. Watches groups **and** 1-on-1 chats. |
+| 🔐 **Per-chat opt-in + email OTP** | Toggle AI reading per chat; enabling requires an emailed 6-digit code. User identity = your WhatsApp account; email lives on a DB-backed profile. |
+| 🗂️ **Planner** | Meetings, tasks, and announcements pulled from chats — editable, completable, pinnable. Plus a built-in **"Test the AI sorter"** box (paste text, watch it file). |
+| 📋 **Boards** | Kanban, Table, Roadmap, Calendar, Checklist, and Notes board types with drag-and-drop. |
+| 🎨 **8 themes** | All on WhatsApp's green palette — Classic, Dark, Neo-Brutalist, Claymorphism, Glassmorphism, Neon, Skeuomorphic, Paper & Ink. |
+| 🎮 **Gamification** | Streaks, badges, completion tracking, and a floating pet companion that levels up. |
+| ⚡ **Realtime** | Socket.IO pushes new messages and sorted items to the UI instantly. |
 
 ---
 
-## 🚀 Getting Started
+## 🏗️ Architecture
 
-### Option A — Docker *(recommended, fastest path to "just see it")*
+```
+┌─────────────────────────────┐         ┌──────────────────────────────────────┐
+│  Frontend  (web · :8080)    │         │  Backend  (api · :4000)               │
+│  React 19 · TanStack Start  │  REST   │  Express · Socket.IO                  │
+│  Tailwind · Framer Motion   │ ◄─────► │                                       │
+│                             │  WS     │  whatsapp-web.js  ─┐ (headless Chrome) │
+└─────────────────────────────┘         │  Gemini / heuristic ├─► classifier    │
+                                        │  Brevo  ───────────┘ (email OTP)       │
+                                        │  Store: local JSON file or Firestore   │
+                                        └────────────────────────────────────────┘
+```
+
+| Layer | Tech |
+|---|---|
+| **Frontend** | React 19, TanStack Start (SSR), Vite, Tailwind CSS, Framer Motion |
+| **Backend** | Node.js (ESM), Express, Socket.IO |
+| **WhatsApp** | `whatsapp-web.js` (headless Chromium) |
+| **AI** | Google Gemini (`gemini-2.0-flash`), with a keyword/regex fallback |
+| **Email OTP** | Brevo (also supports Resend / SendGrid) over HTTP — no SMTP |
+| **Storage** | Local JSON file (default) or Firebase Firestore |
+
+---
+
+## 🚀 Getting started
+
+### Option A — Docker *(recommended)*
 
 ```bash
-git clone <this-repo-url>
-cd whatsplan
+git clone <this-repo-url> && cd WhatsPlan
+cp server/.env.example server/.env      # optional: add API keys (works without them)
 docker compose up --build
 ```
 
-Then open **http://localhost:8080**.
+- App → **http://localhost:8080**
+- API → **http://localhost:4000**
 
----
+To link WhatsApp: open the app, scan the QR shown on the login screen (WhatsApp → **Settings → Linked devices → Link a device**).
 
-### Option B — Local Node *(requires Node 20+)*
-
-```bash
-npm install
-npm run dev
-```
-
-Dev server runs on **port 8080**.
-
----
-
-### Environment Variables
+### Option B — Local (Node 20+)
 
 ```bash
-cp .env.example .env
+# backend
+cd server && npm install && npm run dev     # → :4000  (downloads Chromium once)
+
+# frontend (new terminal, repo root)
+npm install && npm run dev                  # → :8080
 ```
 
-Fill in the values described in `.env.example`.
-
-> **Important:** The `ANTHROPIC_API_KEY` powers the message classifier and must only ever be set as a **server-side secret** — via Lovable Cloud → Secrets, or your own backend env. Never commit it or place it in frontend code.
+> **Everything runs with zero API keys.** Without a Gemini key it uses the heuristic classifier; without an email provider the OTP is printed to the server console. Add keys when you want the real thing.
 
 ---
 
-## 📁 Project Structure
+## ⚙️ Configuration
+
+All backend config lives in **`server/.env`** (git-ignored — safe for keys). Copy `server/.env.example` and fill in what you need:
+
+| Key | Purpose | Required? |
+|---|---|---|
+| `GEMINI_API_KEY` | AI classifier ([AI Studio](https://aistudio.google.com/app/apikey)) | Optional — falls back to heuristic |
+| `EMAIL_PROVIDER` | `brevo` \| `resend` \| `sendgrid` | Optional |
+| `BREVO_API_KEY` | Email OTP delivery | Optional — falls back to console code |
+| `EMAIL_FROM` | A **verified** sender for your provider | With email |
+| `WATCH_CHATS` / `WATCH_DMS` | Which chats to watch | Optional |
+| `READ_ONLY` | Never send WhatsApp messages (ban-safety) | Default `true` |
+
+The frontend only needs **`VITE_API_URL`** (in a root `.env.local`), which defaults to `http://localhost:4000`. **Never put secrets in frontend env** — anything `VITE_*` ships to the browser.
+
+See [`server/README.md`](server/README.md) for the full API and backend details.
+
+---
+
+## 🧪 Testing the AI sorter
+
+You don't need a live chat to see it work:
+
+- **In-app** → open the **Planner** tab → *"Test the AI sorter"* box → paste a message → it's classified and filed below.
+- **curl**:
+  ```bash
+  curl -X POST http://localhost:4000/api/classify \
+    -H "content-type: application/json" \
+    -d '{"text":"standup tomorrow 9am zoom.us/j/123"}'
+  ```
+
+---
+
+## 📁 Project structure
 
 ```
-whatsplan/
-├── src/
-│   ├── components/
-│   │   ├── WhatsPlanApp.tsx      ← whole app shell (themes, boards, gamification, settings)
-│   │   └── ui/                   ← shadcn/ui component kit
-│   └── ...
-├── supabase/
-│   └── functions/                ← Edge Functions, including the AI classifier
-├── docs/
-│   └── WhatsPlan-PRD.md          ← full product requirements doc
-├── .env.example
+WhatsPlan/
+├── src/                         # Frontend (TanStack Start)
+│   ├── components/WhatsPlanApp.tsx   ← the whole app shell
+│   ├── lib/api.ts                    ← backend client + React hooks
+│   └── routes/                       ← SSR routes
+├── server/                      # Backend
+│   └── src/
+│       ├── whatsapp/client.js        ← device link + message pipeline
+│       ├── ai/classifier.js          ← Gemini + heuristic
+│       ├── verify.js · users.js      ← email OTP + user profiles
+│       ├── email.js                  ← Brevo / Resend / SendGrid
+│       ├── store/                    ← local-file or Firestore
+│       └── routes.js                 ← REST API
 └── docker-compose.yml
 ```
 
 ---
 
-## 🗺️ Roadmap
+## ⚠️ Known limitations
 
-**1. Real WhatsApp listener**  
-Wire up Baileys / whatsapp-web.js to feed the classifier live, replacing paste-and-classify.
-
-**2. Shared boards across group members**  
-Move off localStorage-only persistence so the whole group sees the same board in real time.
-
-**3. Calendar export + reminders**  
-Google Calendar sync and `.ics` export so extracted meetings land where people already look.
-
-**4. Accessibility pass**  
-Contrast audit across all 8 themes, density toggle for data-heavy boards, full keyboard nav.
-
-> See [`docs/WhatsPlan-PRD.md`](docs/WhatsPlan-PRD.md) for the full reasoning behind these priorities.
+| Limitation | Notes |
+|---|---|
+| **AI accuracy without Gemini** | The heuristic fallback is keyword-based and will miss edge cases. A Gemini key (with quota) unlocks context-aware sorting. |
+| **Email senders** | Free email providers require a **verified sender**; a no-name address needs a verified neutral inbox or your own domain. |
+| **Call history** | The Calls tab is a placeholder — WhatsApp Web doesn't expose call logs. |
+| **Account safety** | This automates a personal WhatsApp account. `READ_ONLY=true` (default) keeps the link read-only. |
 
 ---
 
 <div align="center">
 
-**WhatsPlan** · MIT License · Built with ☕ and Claude
-
-*The group chat stays. The chaos doesn't.*
+**WhatsPlan** · MIT License · *The group chat stays. The chaos doesn't.*
 
 </div>

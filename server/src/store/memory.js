@@ -13,6 +13,8 @@ const EMPTY = {
   announcements: {},
   boards: {},
   state: {},
+  users: {}, // per-user profile: email + verification flag (keyed by WhatsApp id)
+  verify: {}, // pending OTP codes (never exposed via API)
 };
 
 /**

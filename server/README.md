@@ -74,9 +74,43 @@ Until configured, data is persisted to `data/store.json`.
 ### Chats & messages
 | Method | Path                          | Purpose                       |
 | ------ | ----------------------------- | ----------------------------- |
-| GET    | `/api/chats`                  | Watched chats, newest first   |
+| GET    | `/api/chats`                  | Watched chats, newest first (each carries `aiEnabled`) |
+| PATCH  | `/api/chats/:id`              | `{ aiEnabled }` — toggle AI reading for one chat. Turning it **on** needs a verified email (403 `VERIFY_REQUIRED` otherwise) and backfills the planner from recent history. |
 | GET    | `/api/chats/:id/messages`     | Messages for a chat           |
 | POST   | `/api/chats/:id/messages`     | Send `{ text }` to a chat     |
+
+**AI reading is per-chat opt-in.** A message is only classified into a
+meeting/task/announcement when its chat has `aiEnabled: true`. Flip it from the
+toggle on each chat row in the UI.
+
+### User profile
+The user is the linked WhatsApp account. Their email lives in the `users`
+collection so the OTP knows where to send the code — no need to retype it.
+
+| Method | Path          | Purpose                                            |
+| ------ | ------------- | -------------------------------------------------- |
+| GET    | `/api/user`   | `{ id, wid, name, email, verified, verifiedAt }`   |
+| PUT    | `/api/user`   | `{ email }` → set/replace the user's email (changing it clears prior verification) |
+
+### Email verification (gates AI reading)
+| Method | Path                    | Purpose                                          |
+| ------ | ----------------------- | ------------------------------------------------ |
+| GET    | `/api/verify`           | `{ verified, email, verifiedAt }` for the current user |
+| POST   | `/api/verify/request`   | sends a 6-digit code to the user's stored email. Optional `{ email }` sets it first. Returns `{ ok, sent, email, devCode? }` (`devCode` only when no email provider is configured). |
+| POST   | `/api/verify/confirm`   | `{ code }` → verifies the user and unlocks AI reading |
+
+Email is delivered via a third-party HTTP API (no SMTP). Choose one with
+`EMAIL_PROVIDER` and set its key in `.env`:
+
+| Provider | Key | Reaches any recipient? |
+| --- | --- | --- |
+| `resend` | `RESEND_API_KEY` | Only your Resend account email until you verify a domain |
+| `brevo` | `BREVO_API_KEY` | **Yes** — just verify a sender email (no domain) |
+| `sendgrid` | `SENDGRID_API_KEY` | Yes — after single-sender verification |
+
+Leave the chosen provider's key blank and the code is logged to the console and
+echoed in the response so you can test with zero setup. For `brevo`/`sendgrid`,
+set `EMAIL_FROM` to your verified sender.
 
 ### Derived items
 `:col` ∈ `meetings | tasks | announcements`
@@ -127,5 +161,6 @@ Connect to the same origin. Events the server emits:
   bulk/auto-replies; WhatsApp may flag the number. The classifier only *reads*.
 - **Vague messages** — meetings/tasks missing a time are stored with
   `incomplete: true` so the frontend can surface them as "drafts" to complete.
-- `WATCH_CHATS` (in `.env`) limits which groups are processed. Blank = all groups.
+- `WATCH_CHATS` (in `.env`) limits which chats are processed (groups **and**
+  1-on-1). Blank = all. `WATCH_DMS=false` restricts the default to groups only.
 - `data/` holds the WhatsApp auth session + the local store — it's git-ignored.

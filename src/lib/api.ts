@@ -20,7 +20,9 @@ export type SessionState = {
   readOnly?: boolean;
 };
 export type Group = { id: string; name: string; participants: number; watched: boolean };
-export type Chat = { id: string; name: string; isGroup: boolean; lastMessage: string; timestamp: number; unread?: number };
+export type Chat = { id: string; name: string; isGroup: boolean; lastMessage: string; timestamp: number; unread?: number; aiEnabled?: boolean };
+export type Verification = { verified: boolean; email: string | null; verifiedAt?: number | null; windowMs?: number };
+export type User = { id: string; wid: string | null; name: string | null; email: string | null; verified: boolean; verifiedAt?: number | null };
 export type Message = { id: string; chatId: string; chatName: string; isGroup: boolean; from: string; fromName: string; body: string; timestamp: number; fromMe: boolean };
 export type Meeting = { id: string; chatId: string; chatName: string; author: string; title: string; datetime: string; link: string; location: string; incomplete: boolean; sourceText: string; confidence: number; createdAt: number };
 export type Task = { id: string; chatId: string; chatName: string; author: string; description: string; assignee: string; due: string; priority: "low" | "medium" | "high"; done: boolean; incomplete: boolean; sourceText: string; confidence: number; createdAt: number };
@@ -40,7 +42,21 @@ async function http(path: string, opts: RequestInit = {}) {
     headers: { "Content-Type": "application/json" },
     ...opts,
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    // Surface the server's JSON `{ error, code }` so callers can show a real
+    // message and branch on codes like VERIFY_REQUIRED.
+    let message = `${res.status} ${res.statusText}`;
+    let code: string | undefined;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+      if (body?.code) code = body.code;
+    } catch { /* non-JSON error body */ }
+    const err = new Error(message) as Error & { status?: number; code?: string };
+    err.status = res.status;
+    err.code = code;
+    throw err;
+  }
   return res.status === 204 ? null : res.json();
 }
 
@@ -54,6 +70,22 @@ export const api = {
   getMessages: (chatId: string): Promise<Message[]> => http(`/chats/${encodeURIComponent(chatId)}/messages`),
   sendMessage: (chatId: string, text: string) =>
     http(`/chats/${encodeURIComponent(chatId)}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+  setChatAi: (chatId: string, aiEnabled: boolean): Promise<Chat> =>
+    http(`/chats/${encodeURIComponent(chatId)}`, { method: "PATCH", body: JSON.stringify({ aiEnabled }) }),
+
+  getUser: (): Promise<User> => http("/user"),
+  putUser: (email: string): Promise<User> =>
+    http("/user", { method: "PUT", body: JSON.stringify({ email }) }),
+
+  getVerification: (): Promise<Verification> => http("/verify"),
+  // email is optional — passing it sets/updates the stored email before sending.
+  requestOtp: (email?: string): Promise<{ ok: boolean; sent: boolean; email: string | null; devCode?: string }> =>
+    http("/verify/request", { method: "POST", body: JSON.stringify(email ? { email } : {}) }),
+  confirmOtp: (code: string): Promise<Verification> =>
+    http("/verify/confirm", { method: "POST", body: JSON.stringify({ code }) }),
+
+  classifyText: (text: string): Promise<{ classification: any; stored: boolean }> =>
+    http("/classify", { method: "POST", body: JSON.stringify({ text }) }),
 
   getMeetings: (): Promise<Meeting[]> => http("/meetings"),
   getTasks: (): Promise<Task[]> => http("/tasks"),
@@ -280,6 +312,51 @@ export function useBoards(): [any[], (next: any[] | ((cur: any[]) => any[])) => 
   }, []);
 
   return [boards, setBoards];
+}
+
+/**
+ * Email-verification state. A successful verification is only valid for a short
+ * window (`windowMs`, default 30s); after that AI reading must be re-verified.
+ * `verified` flips itself back to false when the window elapses, so the UI
+ * re-prompts for an OTP. `markVerified` lets the OTP dialog grant the window
+ * locally the instant a code is confirmed (no refetch needed).
+ */
+const DEFAULT_VERIFY_WINDOW_MS = 30_000;
+export function useVerification() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [verifiedAt, setVerifiedAt] = useState<number | null>(null);
+  const [windowMs, setWindowMs] = useState<number>(DEFAULT_VERIFY_WINDOW_MS);
+  const [verified, setVerified] = useState(false);
+
+  const reload = useCallback(() => {
+    api.getVerification()
+      .then((v) => {
+        if (!v) return;
+        setEmail(v.email ?? null);
+        setWindowMs(v.windowMs ?? DEFAULT_VERIFY_WINDOW_MS);
+        setVerifiedAt(v.verifiedAt ?? null);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // Derive `verified` from the window and auto-expire it when the window ends.
+  useEffect(() => {
+    if (!verifiedAt) { setVerified(false); return; }
+    const remaining = verifiedAt + windowMs - Date.now();
+    if (remaining <= 0) { setVerified(false); return; }
+    setVerified(true);
+    const t = setTimeout(() => setVerified(false), remaining);
+    return () => clearTimeout(t);
+  }, [verifiedAt, windowMs]);
+
+  const markVerified = useCallback((em: string) => {
+    setEmail(em);
+    setVerifiedAt(Date.now());
+  }, []);
+
+  return { verified, email, verifiedAt, windowMs, reload, markVerified };
 }
 
 /**

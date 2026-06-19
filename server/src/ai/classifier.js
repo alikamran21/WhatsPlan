@@ -3,7 +3,7 @@ import { config } from "../config.js";
 
 export const CATEGORIES = ["meeting", "task", "announcement", "chatter"];
 
-const PROMPT = `You are the WhatsPlan classifier. You read ONE WhatsApp group message and decide what it is.
+const PROMPT = `You are the WhatsPlan classifier. You read ONE WhatsApp chat message (from a group or a 1-on-1 chat) and decide what it is.
 
 Return ONLY a JSON object (no markdown, no commentary) with this exact shape:
 {
@@ -58,8 +58,23 @@ async function classifyWithGemini(msg) {
     `Group: ${msg.chatName || "unknown"}\n` +
     `Message:\n"""${msg.body}"""`;
   const res = await model.generateContent(prompt);
-  const parsed = JSON.parse(res.response.text());
-  return normalize(parsed);
+  return normalize(parseJsonLoose(res.response.text()));
+}
+
+/**
+ * Parse the model's JSON even if it wrapped it in markdown fences or added
+ * stray text (we ask for JSON mode, but be defensive so a stray char never
+ * drops a message to the heuristic).
+ */
+function parseJsonLoose(text) {
+  const s = String(text || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    return JSON.parse(s);
+  } catch {
+    const m = s.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+    throw new Error("no JSON object in model response");
+  }
 }
 
 function normalize(p = {}) {
@@ -86,24 +101,34 @@ const str = (v) => (typeof v === "string" ? v.trim() : "");
    Heuristic fallback — runs with no API key. Keyword/regex based, good
    enough to demo the pipeline end-to-end before wiring up Gemini.
    ──────────────────────────────────────────────────────────────────────── */
-const LINK_RE = /(https?:\/\/[^\s]*(zoom\.us|meet\.google|teams\.microsoft|whereby\.com|webex\.com)[^\s]*)/i;
-const TIME_RE = /\b(\d{1,2}(:\d{2})?\s?(am|pm)|\d{1,2}:\d{2})\b/i;
-const MEETING_WORDS = ["meet", "meeting", "call", "standup", "sync", "zoom", "huddle", "catch up", "schedule"];
-const TASK_WORDS = ["please", "can you", "could you", "todo", "to-do", "task", "send", "finish", "complete", "submit", "fix", "review", "by tomorrow", "by friday", "deadline", "assign"];
-const ANNOUNCE_WORDS = ["announce", "reminder", "fyi", "heads up", "note that", "important", "everyone", "closed", "holiday", "released", "launch", "update:"];
-const HIGH_WORDS = ["urgent", "asap", "immediately", "critical", "now"];
+const LINK_RE = /(https?:\/\/[^\s]*(zoom\.us|meet\.google|teams\.microsoft|whereby\.com|webex\.com|hangouts|calendly)[^\s]*)/i;
+const TIME_RE = /\b(\d{1,2}(:\d{2})?\s?(a\.?m\.?|p\.?m\.?)|\d{1,2}:\d{2}|noon|midnight)\b/i;
+const DATE_RE = /\b(today|tonight|tomorrow|tmrw|tmr|mon(day)?|tues?(day)?|wed(nesday)?|thur?s?(day)?|fri(day)?|sat(urday)?|sun(day)?|next\s+(week|month|mon(day)?|tue(sday)?|wed(nesday)?|thu(rsday)?|fri(day)?|sat(urday)?|sun(day)?)|this\s+(week|weekend)|eod|cob|end of day)\b/i;
+const MEETING_WORDS = ["meeting", "let's meet", "lets meet", " meet ", "meet at", "meet up", "call", "standup", "stand-up", "sync", "zoom", "huddle", "catch up", "catch-up", "appointment", "session", "conference", "interview", "get together", "demo", "presentation"];
+const TASK_WORDS = ["please", "pls", "can you", "could you", "would you", "todo", "to-do", "task", "send", "finish", "complete", "submit", "fix", "review", "deadline", "assign", "bring", "order", "prepare", "deliver", "share", "update", "remind", "upload", "pay", "book", "collect", "return", "arrange", "need you to", "required", "due ", "make sure"];
+const ANNOUNCE_WORDS = ["announce", "announcement", "reminder", "fyi", "heads up", "heads-up", "note that", "please note", "important", "everyone", "all staff", "closed", "holiday", "released", "launch", "update:", "notice", "attention", "psa"];
+const HIGH_WORDS = ["urgent", "asap", "immediately", "critical", "right now", "high priority", "emergency"];
+// Imperative command at the start ("Bring the files", "Send me the report").
+const IMPERATIVE_RE = /^(please\s+|kindly\s+|pls\s+)?(bring|send|get|make|prepare|finish|complete|submit|fix|review|do|call|email|share|upload|pay|book|order|arrange|remind|update|deliver|collect|return|attend|join|create|check|read|sign|approve|confirm|schedule)\b/i;
+// Directive phrasing anywhere ("I order you to…", "you must…", "make sure to…").
+const DIRECTIVE_RE = /\b(i order you|you (must|need to|have to|should|are required to)|make sure (to|you)|don'?t forget|be sure to|ensure (you|that)|needs? to be)\b/i;
 
 function heuristicClassify(msg) {
-  const body = msg.body || "";
+  const body = (msg.body || "").trim();
   const t = body.toLowerCase();
   const link = (body.match(LINK_RE) || [])[0] || "";
   const hasTime = TIME_RE.test(body);
+  const hasDate = DATE_RE.test(t);
   const has = (words) => words.some((w) => t.includes(w));
+  const imperative = IMPERATIVE_RE.test(body) || DIRECTIVE_RE.test(t);
 
   let category = "chatter";
   if (link || has(MEETING_WORDS)) category = "meeting";
-  else if (has(TASK_WORDS)) category = "task";
+  else if (has(TASK_WORDS) || imperative) category = "task";
   else if (has(ANNOUNCE_WORDS)) category = "announcement";
+  // A concrete time or date with no keyword is almost always an actionable plan
+  // ("bring the files tomorrow 10am") — file it as a task rather than dropping it.
+  else if (hasTime || hasDate) category = "task";
 
   const priority = has(HIGH_WORDS) ? "high" : "medium";
   const firstLine = body.split("\n")[0].slice(0, 80);
@@ -111,7 +136,7 @@ function heuristicClassify(msg) {
   if (category === "meeting") {
     return normalize({
       category,
-      confidence: link ? 0.8 : 0.55,
+      confidence: link ? 0.85 : 0.6,
       title: firstLine,
       link,
       datetime: "",
@@ -123,7 +148,8 @@ function heuristicClassify(msg) {
     const assignee = (body.match(/@(\w+)/) || [])[1] || "";
     return normalize({
       category,
-      confidence: 0.55,
+      // lower confidence when it only matched on a bare time/date
+      confidence: has(TASK_WORDS) || imperative ? 0.6 : 0.45,
       title: firstLine,
       summary: firstLine,
       assignee,
@@ -132,7 +158,7 @@ function heuristicClassify(msg) {
     });
   }
   if (category === "announcement") {
-    return normalize({ category, confidence: 0.55, summary: firstLine, priority });
+    return normalize({ category, confidence: 0.6, summary: firstLine, priority });
   }
   return normalize({ category: "chatter", confidence: 0.6 });
 }

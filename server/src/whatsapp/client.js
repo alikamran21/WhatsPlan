@@ -88,9 +88,12 @@ export class WhatsAppService extends EventEmitter {
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         // Longer timeout: getChats on a busy account can be slow headless.
         protocolTimeout: 120000,
+        // NOTE: we do NOT pass --disable-dev-shm-usage. That flag forces
+        // Chromium to use /tmp (disk) for shared memory, which is slow and was
+        // contributing to "Target closed" crashes. Instead docker-compose gives
+        // the container a roomy /dev/shm (shm_size: 1gb).
         args: [
           "--no-sandbox", "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage", // important in containers (small /dev/shm)
           "--disable-gpu", "--disable-extensions", "--no-first-run",
           "--disable-background-timer-throttling", "--disable-renderer-backgrounding",
         ],
@@ -152,20 +155,32 @@ export class WhatsAppService extends EventEmitter {
   }
 
   _watching(chat) {
-    if (!config.watchChats.length) return chat.isGroup; // default: all groups
-    return config.watchChats.some(
-      (w) => chat.id?._serialized === w || (chat.name || "").toLowerCase().includes(w.toLowerCase()),
-    );
+    if (config.watchChats.length) {
+      return config.watchChats.some(
+        (w) => chat.id?._serialized === w || (chat.name || "").toLowerCase().includes(w.toLowerCase()),
+      );
+    }
+    // No explicit list: always watch groups, and 1-on-1 chats unless disabled.
+    return chat.isGroup || config.watchDms;
   }
 
   async syncChats(attempt = 1) {
     const MAX = 12;
+    // The headless browser can drop/reload mid-sync (logs show "Target closed").
+    // When that happens the "disconnected" handler nulls this.client, so bail
+    // out of this stale retry loop instead of throwing "Cannot read properties
+    // of undefined (reading 'getChats')" over and over. A fresh sync kicks off
+    // on the next "ready" event.
+    if (this.status !== "ready" || !this.client) {
+      console.warn("[wa] chat sync aborted — client not ready (will resync on reconnect)");
+      return;
+    }
     try {
       // getChats hangs while WhatsApp Web is still syncing history after a
       // fresh link. Fail each attempt fast, then keep retrying for a few mins.
       const chats = await Promise.race([
         this.client.getChats(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("getChats timed out (still syncing?)")), 30000)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("getChats timed out (still syncing?)")), 60000)),
       ]);
       let saved = 0;
       for (const c of chats) {
@@ -230,6 +245,11 @@ export class WhatsAppService extends EventEmitter {
     if (!record.body) return;
     if (record.fromMe && !config.classifyOwn) return;
 
+    // AI reading is per-chat opt-in (toggled from the UI, gated behind email
+    // verification). The merged chat doc carries the flag set via PATCH /chats.
+    const chatDoc = await this.store.get("chats", record.chatId);
+    if (!chatDoc?.aiEnabled) return;
+
     const cls = await classifyMessage(record);
     await this.applyClassification(record, cls);
     // Mark as AI-read so the retention sweep knows it's been processed.
@@ -240,7 +260,44 @@ export class WhatsAppService extends EventEmitter {
     });
   }
 
+  /**
+   * Classify recently-stored, not-yet-read messages for a chat. Runs when AI
+   * reading is first switched on so the planner backfills from history instead
+   * of only catching messages that arrive afterwards. Items stream out via the
+   * "item" event as they're found. Fire-and-forget — never throws to the caller.
+   */
+  async classifyChatBacklog(chatId, limit = 20) {
+    const all = await this.store.list("messages", { orderBy: "timestamp", dir: "desc" });
+    const pending = all
+      .filter(
+        (m) =>
+          m.chatId === chatId &&
+          m.body &&
+          !m.classified &&
+          (!m.fromMe || config.classifyOwn),
+      )
+      .slice(0, limit)
+      .reverse(); // oldest first, so the planner reads chronologically
+    for (const record of pending) {
+      await new Promise((r) => setImmediate(r)); // yield so chat/message reqs stay responsive
+      try {
+        const cls = await classifyMessage(record);
+        await this.applyClassification(record, cls);
+        await this.store.upsert("messages", record.id, {
+          classified: true,
+          classifiedAt: Date.now(),
+          category: cls.category,
+        });
+      } catch (e) {
+        console.warn("[wa] backlog classify failed:", e.message);
+      }
+    }
+  }
+
   async applyClassification(msg, cls) {
+    if (cls.category !== "chatter") {
+      console.log(`[ai] ${cls.category.toUpperCase()} ← "${(msg.body || "").slice(0, 45)}" (${Math.round((cls.confidence || 0) * 100)}%)`);
+    }
     const base = {
       chatId: msg.chatId,
       chatName: msg.chatName,
@@ -289,22 +346,37 @@ export class WhatsAppService extends EventEmitter {
     // "chatter" → intentionally dropped
   }
 
-  /** Recent message history for one chat, fetched live from WhatsApp. */
+  /**
+   * Recent message history for one chat, fetched live from WhatsApp. Raced
+   * against an 8s timeout: the headless browser can stall while busy (e.g.
+   * classifying a flood of incoming messages), and we never want the chat
+   * thread to hang on it — on timeout we return [] and the route falls back to
+   * the locally stored messages.
+   */
   async fetchMessages(chatId, limit = 40) {
     if (this.status !== "ready") return [];
-    const chat = await this.client.getChatById(chatId);
-    const msgs = await chat.fetchMessages({ limit });
-    return msgs.map((m) => ({
-      id: m.id._serialized,
-      chatId,
-      chatName: chat.name || chat.id.user,
-      isGroup: !!chat.isGroup,
-      from: m.author || m.from,
-      fromName: m._data?.notifyName || "",
-      body: m.body || "",
-      timestamp: (m.timestamp || 0) * 1000,
-      fromMe: !!m.fromMe,
-    }));
+    const work = (async () => {
+      const chat = await this.client.getChatById(chatId);
+      const msgs = await chat.fetchMessages({ limit });
+      return msgs.map((m) => ({
+        id: m.id._serialized,
+        chatId,
+        chatName: chat.name || chat.id.user,
+        isGroup: !!chat.isGroup,
+        from: m.author || m.from,
+        fromName: m._data?.notifyName || "",
+        body: m.body || "",
+        timestamp: (m.timestamp || 0) * 1000,
+        fromMe: !!m.fromMe,
+      }));
+    })().catch((e) => {
+      console.warn("[wa] fetchMessages failed:", e.message);
+      return [];
+    });
+    return Promise.race([
+      work,
+      new Promise((resolve) => setTimeout(() => resolve([]), 8000)),
+    ]);
   }
 
   async sendMessage(chatId, text) {
