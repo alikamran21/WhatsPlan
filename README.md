@@ -14,7 +14,7 @@
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-FF4154?style=flat-square&logo=reactquery&logoColor=white)](https://tanstack.com/start)
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](https://ai.google.dev)
+[![Groq](https://img.shields.io/badge/Groq-LLM-F55036?style=flat-square)](https://groq.com)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
 
 </div>
@@ -45,7 +45,7 @@ WhatsPlan **reads, classifies, and surfaces** — turning a live chat into an or
 ```
 1. Link WhatsApp        → scan a QR (whatsapp-web.js), no password
 2. Flip a chat's AI on  → a per-chat toggle, gated by email OTP verification
-3. Messages flow in     → each is classified (Gemini, with a keyword fallback)
+3. Messages flow in     → each is classified (Groq LLM, with a keyword fallback)
 4. The Planner fills up  → meetings / tasks / announcements, in real time
 ```
 
@@ -57,10 +57,10 @@ A chat is only read **after you opt it in** with the toggle — and turning that
 
 | | |
 |---|---|
-| 🤖 **AI message sorting** | Every message → meeting / task / announcement / chatter, with time, link, assignee & due-date extraction. Gemini-powered, with a built-in heuristic fallback so it works with no key. |
+| 🤖 **AI message sorting** | Every message → meeting / task / announcement / chatter, with time, link, assignee & due-date extraction. Groq-powered, with a built-in heuristic fallback so it works with no key. |
 | 🔌 **Live WhatsApp** | Real device link via `whatsapp-web.js`. Read-only by default for account safety. Watches groups **and** 1-on-1 chats. |
 | 🔐 **Per-chat opt-in + email OTP** | Toggle AI reading per chat; enabling requires an emailed 6-digit code. User identity = your WhatsApp account; email lives on a DB-backed profile. |
-| 🗂️ **Planner** | Meetings, tasks, and announcements pulled from chats — editable, completable, pinnable. Plus a built-in **"Test the AI sorter"** box (paste text, watch it file). |
+| 🗂️ **Planner** | Meetings, tasks, and announcements pulled from chats — editable, completable, pinnable. |
 | 📋 **Boards** | Kanban, Table, Roadmap, Calendar, Checklist, and Notes board types with drag-and-drop. |
 | 🎨 **8 themes** | All on WhatsApp's green palette — Classic, Dark, Neo-Brutalist, Claymorphism, Glassmorphism, Neon, Skeuomorphic, Paper & Ink. |
 | 🎮 **Gamification** | Streaks, badges, completion tracking, and a floating pet companion that levels up. |
@@ -76,9 +76,9 @@ A chat is only read **after you opt it in** with the toggle — and turning that
 │  React 19 · TanStack Start  │  REST   │  Express · Socket.IO                  │
 │  Tailwind · Framer Motion   │ ◄─────► │                                       │
 │                             │  WS     │  whatsapp-web.js  ─┐ (headless Chrome) │
-└─────────────────────────────┘         │  Gemini / heuristic ├─► classifier    │
+└─────────────────────────────┘         │  Groq / heuristic  ├─► classifier     │
                                         │  Brevo  ───────────┘ (email OTP)       │
-                                        │  Store: local JSON file or Firestore   │
+                                        │  Store: local JSON file (data/)        │
                                         └────────────────────────────────────────┘
 ```
 
@@ -87,9 +87,9 @@ A chat is only read **after you opt it in** with the toggle — and turning that
 | **Frontend** | React 19, TanStack Start (SSR), Vite, Tailwind CSS, Framer Motion |
 | **Backend** | Node.js (ESM), Express, Socket.IO |
 | **WhatsApp** | `whatsapp-web.js` (headless Chromium) |
-| **AI** | Google Gemini (`gemini-2.0-flash`), with a keyword/regex fallback |
-| **Email OTP** | Brevo (also supports Resend / SendGrid) over HTTP — no SMTP |
-| **Storage** | Local JSON file (default) or Firebase Firestore |
+| **AI** | Groq (`llama-3.3-70b-versatile`), with a keyword/regex fallback |
+| **Email OTP** | Brevo over HTTP — no SMTP |
+| **Storage** | Local JSON file (`data/store.json`) |
 
 ---
 
@@ -118,7 +118,7 @@ cd server && npm install && npm run dev     # → :4000  (downloads Chromium onc
 npm install && npm run dev                  # → :8080
 ```
 
-> **Everything runs with zero API keys.** Without a Gemini key it uses the heuristic classifier; without an email provider the OTP is printed to the server console. Add keys when you want the real thing.
+> **Everything runs with zero API keys.** Without a Groq key it uses the heuristic classifier; without a Brevo key the OTP is printed to the server console. Add keys when you want the real thing.
 
 ---
 
@@ -128,10 +128,9 @@ All backend config lives in **`server/.env`** (git-ignored — safe for keys). C
 
 | Key | Purpose | Required? |
 |---|---|---|
-| `GEMINI_API_KEY` | AI classifier ([AI Studio](https://aistudio.google.com/app/apikey)) | Optional — falls back to heuristic |
-| `EMAIL_PROVIDER` | `brevo` \| `resend` \| `sendgrid` | Optional |
-| `BREVO_API_KEY` | Email OTP delivery | Optional — falls back to console code |
-| `EMAIL_FROM` | A **verified** sender for your provider | With email |
+| `GROQ_API_KEY` | AI classifier — **Groq** (free, no billing — [console.groq.com](https://console.groq.com)) | Optional — falls back to heuristic |
+| `BREVO_API_KEY` | Email OTP delivery ([brevo.com](https://www.brevo.com)) | Optional — falls back to console code |
+| `EMAIL_FROM` | A **verified** Brevo sender | With email |
 | `WATCH_CHATS` / `WATCH_DMS` | Which chats to watch | Optional |
 | `READ_ONLY` | Never send WhatsApp messages (ban-safety) | Default `true` |
 
@@ -143,15 +142,13 @@ See [`server/README.md`](server/README.md) for the full API and backend details.
 
 ## 🧪 Testing the AI sorter
 
-You don't need a live chat to see it work:
+Run any text through the classifier without a live chat:
 
-- **In-app** → open the **Planner** tab → *"Test the AI sorter"* box → paste a message → it's classified and filed below.
-- **curl**:
-  ```bash
-  curl -X POST http://localhost:4000/api/classify \
-    -H "content-type: application/json" \
-    -d '{"text":"standup tomorrow 9am zoom.us/j/123"}'
-  ```
+```bash
+curl -X POST http://localhost:4000/api/classify \
+  -H "content-type: application/json" \
+  -d '{"text":"standup tomorrow 9am zoom.us/j/123"}'
+```
 
 ---
 
@@ -166,10 +163,10 @@ WhatsPlan/
 ├── server/                      # Backend
 │   └── src/
 │       ├── whatsapp/client.js        ← device link + message pipeline
-│       ├── ai/classifier.js          ← Gemini + heuristic
+│       ├── ai/classifier.js          ← Groq + heuristic
 │       ├── verify.js · users.js      ← email OTP + user profiles
-│       ├── email.js                  ← Brevo / Resend / SendGrid
-│       ├── store/                    ← local-file or Firestore
+│       ├── email.js                  ← Brevo
+│       ├── store/                    ← local JSON file
 │       └── routes.js                 ← REST API
 └── docker-compose.yml
 ```
@@ -180,7 +177,7 @@ WhatsPlan/
 
 | Limitation | Notes |
 |---|---|
-| **AI accuracy without Gemini** | The heuristic fallback is keyword-based and will miss edge cases. A Gemini key (with quota) unlocks context-aware sorting. |
+| **AI accuracy without a key** | The heuristic fallback is keyword-based and misses edge cases. A free Groq key unlocks context-aware sorting. |
 | **Email senders** | Free email providers require a **verified sender**; a no-name address needs a verified neutral inbox or your own domain. |
 | **Call history** | The Calls tab is a placeholder — WhatsApp Web doesn't expose call logs. |
 | **Account safety** | This automates a personal WhatsApp account. `READ_ONLY=true` (default) keeps the link read-only. |

@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config.js";
 
 export const CATEGORIES = ["meeting", "task", "announcement", "chatter"];
@@ -22,43 +21,52 @@ Return ONLY a JSON object (no markdown, no commentary) with this exact shape:
 
 Rules:
 - "meeting": invites/scheduling with a time or call link ("let's meet", "zoom at 5pm", "standup tomorrow").
-- "task": something to be done, often assigned ("can you send the report", "@Ali fix the bug by Friday").
+- "task": ANY request, command, instruction or order to do/bring/get/buy/send/finish something — formal OR casual, work OR personal, even with typos/slang ("can you send the report", "@Ali fix the bug by Friday", "bring me food", "get coffee", "remember to buy milk", "I order u to do this"). If someone is told or asked to DO something, it's a task.
 - "announcement": important info to broadcast/pin ("office closed Monday", "new release is live").
-- "chatter": greetings, reactions, small talk, anything not actionable.
+- "chatter": only greetings, reactions, jokes, and small talk with NO action and NO time/date. When unsure between task and chatter, prefer task.
 - If a meeting/task is vague (e.g. "let's meet tomorrow" with no time), set category accordingly but incomplete=true.
 - Resolve relative dates ("tomorrow", "Friday") against the provided message timestamp.`;
 
-let model = null;
-if (config.gemini.enabled) {
-  const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
-  model = genAI.getGenerativeModel({
-    model: config.gemini.model,
-    generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
-  });
-}
-
 /** Classify a stored message record. Always resolves to a normalized object. */
 export async function classifyMessage(msg) {
-  if (model) {
+  if (config.groq.enabled) {
     try {
-      return await classifyWithGemini(msg);
+      return normalize(parseJsonLoose(await classifyWithGroq(msg)));
     } catch (e) {
-      console.warn("[ai] Gemini failed, using heuristic:", e.message);
+      console.warn("[ai] Groq failed, using heuristic:", e.message);
     }
   }
   return heuristicClassify(msg);
 }
 
-async function classifyWithGemini(msg) {
+/** Ask Groq (OpenAI-compatible) to classify and return its raw JSON text. */
+async function classifyWithGroq(msg) {
   const when = new Date(msg.timestamp).toISOString();
   const prompt =
     `${PROMPT}\n\n` +
     `Message timestamp: ${when}\n` +
     `Sender: ${msg.fromName || "unknown"}\n` +
-    `Group: ${msg.chatName || "unknown"}\n` +
+    `Chat: ${msg.chatName || "unknown"}\n` +
     `Message:\n"""${msg.body}"""`;
-  const res = await model.generateContent(prompt);
-  return normalize(parseJsonLoose(res.response.text()));
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.groq.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: config.groq.model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Groq ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "";
 }
 
 /**

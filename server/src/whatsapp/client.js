@@ -129,7 +129,10 @@ export class WhatsAppService extends EventEmitter {
       this.client = null;
     });
 
-    this.client.on("message", (m) =>
+    // "message_create" (not "message") so we also see the user's OWN outgoing
+    // messages — "message" is incoming-only. handleMessage gates whether to
+    // classify own messages via config.classifyOwn.
+    this.client.on("message_create", (m) =>
       this.handleMessage(m).catch((e) => console.error("[wa] message error:", e.message)),
     );
 

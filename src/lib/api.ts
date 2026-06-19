@@ -84,9 +84,6 @@ export const api = {
   confirmOtp: (code: string): Promise<Verification> =>
     http("/verify/confirm", { method: "POST", body: JSON.stringify({ code }) }),
 
-  classifyText: (text: string): Promise<{ classification: any; stored: boolean }> =>
-    http("/classify", { method: "POST", body: JSON.stringify({ text }) }),
-
   getMeetings: (): Promise<Meeting[]> => http("/meetings"),
   getTasks: (): Promise<Task[]> => http("/tasks"),
   getAnnouncements: (): Promise<Announcement[]> => http("/announcements"),

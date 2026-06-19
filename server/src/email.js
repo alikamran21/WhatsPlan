@@ -1,14 +1,9 @@
 import { config } from "./config.js";
 
 /**
- * Transactional email via a third-party HTTP API. Uses the global `fetch`
- * built into Node 18+, so there's no SMTP and no extra dependency.
- *
- * Providers (set EMAIL_PROVIDER): resend | brevo | sendgrid.
- *   - resend:   onboarding@resend.dev only reaches your own account email;
- *               verify a domain to send anywhere.
- *   - brevo:    sends to ANY recipient with just a verified sender (no domain).
- *   - sendgrid: sends to any recipient; needs single-sender verification.
+ * Transactional email via Brevo's HTTP API (https://www.brevo.com). Uses the
+ * global `fetch` built into Node 18+, so there's no SMTP and no extra dependency.
+ * EMAIL_FROM must be a verified Brevo sender, otherwise Brevo drops the message.
  */
 
 /** Parse `EMAIL_FROM` ("Name <email@x>" or "email@x") into { name, email }. */
@@ -54,64 +49,34 @@ function otpHtml(code, minutes) {
 }
 
 /**
- * Send the OTP to `to`. Returns true if dispatched, false if no provider is
- * configured (caller falls back to devEcho). Throws on a provider error.
+ * Send the OTP to `to` via Brevo. Returns true if dispatched, false if no key is
+ * configured (caller falls back to devEcho). Throws on a Brevo error.
  */
 export async function sendOtpEmail(to, code) {
   if (!config.email.enabled) return false;
 
   const minutes = Math.round(config.otp.ttlMs / 60000);
-  const subject = "Your WhatsPlan verification code";
   const html = otpHtml(code, minutes);
   const text = `Your WhatsPlan verification code is ${code}. It expires in ${minutes} minutes.`;
-  const from = parseFrom(config.email.from);
-  const { provider, apiKey } = config.email;
 
-  if (provider === "resend") {
-    return post("https://api.resend.com/emails", {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: { from: config.email.from, to, subject, html, text },
-      label: "Resend",
-    });
-  }
-
-  if (provider === "brevo") {
-    return post("https://api.brevo.com/v3/smtp/email", {
-      headers: { "api-key": apiKey, accept: "application/json" },
-      body: { sender: from, to: [{ email: to }], subject, htmlContent: html, textContent: text },
-      label: "Brevo",
-    });
-  }
-
-  if (provider === "sendgrid") {
-    return post("https://api.sendgrid.com/v3/mail/send", {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: {
-        personalizations: [{ to: [{ email: to }] }],
-        from,
-        subject,
-        content: [
-          { type: "text/plain", value: text },
-          { type: "text/html", value: html },
-        ],
-      },
-      label: "SendGrid",
-      // SendGrid returns 202 with an empty body.
-    });
-  }
-
-  throw new Error(`Unknown EMAIL_PROVIDER "${provider}" — use resend | brevo | sendgrid`);
-}
-
-async function post(url, { headers, body, label }) {
-  const res = await fetch(url, {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
+    headers: {
+      "api-key": config.email.apiKey,
+      accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: parseFrom(config.email.from),
+      to: [{ email: to }],
+      subject: "Your WhatsPlan verification code",
+      htmlContent: html,
+      textContent: text,
+    }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`${label} ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`Brevo ${res.status}: ${detail.slice(0, 300)}`);
   }
   return true;
 }

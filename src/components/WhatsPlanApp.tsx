@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  MessageSquare, Phone, Kanban, Award, Settings as SettingsIcon,
+  MessageSquare, Kanban, Award, Settings as SettingsIcon,
   Search, Plus, Send, Paperclip, Smile, Mic, MoreVertical, Lock,
   Palette, User, LogOut, Flame, Trophy, Star, ShieldCheck, Sparkles,
   Calendar as CalendarIcon, ListChecks, StickyNote, Table as TableIcon,
@@ -847,7 +847,6 @@ function BoardsView({ T, boards, setBoards, gam }) {
 
       {!creating && (
         <div className="mb-4">
-          <div className={`text-xs uppercase tracking-wider ${T.muted} mb-2`}>Double-click a style to start immediately</div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {BOARD_TYPES.map((t) => {
               const Icon = t.icon;
@@ -1009,7 +1008,6 @@ function BoardDetail({ T, board, onBack, onChange, gam, allBoards, onMoveCard, o
 function ShareModal({ T, open, onClose, board }) {
   const [tab, setTab] = useState("link");
   const [copied, setCopied] = useState(false);
-  const [email, setEmail] = useState("");
   const [visibility, setVisibility] = useState("private");
   const boardUrl = `https://whatsplan.app/board/${board.id}`;
   const waText = `Check out my WhatsPlan board "${board.name}": ${boardUrl}`;
@@ -1051,13 +1049,6 @@ function ShareModal({ T, open, onClose, board }) {
                     <Copy className="w-3.5 h-3.5" />{copied ? "Copied!" : "Copy"}
                   </button>
                 </div>
-                <div className={`text-[11px] ${T.muted}`}>Backend required — hook <code>POST /api/boards/:id/publish</code></div>
-                <div className={`text-sm font-medium ${T.text}`}>Invite by email</div>
-                <div className="flex gap-2 opacity-70">
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@email.com" disabled className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} />
-                  <button disabled className={`${T.btn} px-3 py-2 rounded-lg text-sm font-medium`}>Invite</button>
-                </div>
-                <div className={`text-[11px] ${T.muted}`}>Email invites need the backend connected.</div>
                 <div className={`text-sm font-medium ${T.text}`}>Visibility</div>
                 <div className="flex gap-2 flex-wrap">
                   {[["private", "Private"], ["link", "Anyone with link"], ["public", "Public"]].map(([v, label]) => (
@@ -1075,7 +1066,6 @@ function ShareModal({ T, open, onClose, board }) {
                 </a>
                 <div className={`text-xs ${T.muted}`}>Message preview</div>
                 <div className={`${T.panelSoft} p-3 rounded-lg text-sm ${T.text} whitespace-pre-wrap break-words`}>{waText}</div>
-                <div className={`text-[11px] ${T.muted}`}>Backend note: <code>POST /api/whatsapp/send</code> for in-app sending.</div>
               </div>
             )}
 
@@ -1375,7 +1365,6 @@ function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], current
                 <input value={card.assignee || ""} onChange={(e) => onSave({ assignee: e.target.value })}
                   placeholder="Or type a name…"
                   className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
-                <div className={`text-[10px] ${T.muted} mt-1`}>Backend required to resolve real WhatsApp contacts.</div>
               </div>
               <div>
                 <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><Tag className="w-3 h-3" /> Tag</div>
@@ -1827,9 +1816,6 @@ function NotesView({ T, board, onChange }) {
 }
 
 /* ====================================================================== */
-/* Chats / Calls placeholder views                                          */
-/* ====================================================================== */
-/* ====================================================================== */
 /* Shared helpers                                                          */
 /* ====================================================================== */
 function fmtTime(ts) {
@@ -2129,6 +2115,8 @@ function ChatsView({ T, wallpaper }) {
 
   async function applyAi(c, val) {
     setAiOverrides((m) => ({ ...m, [c.id]: val }));
+    // A locked chat can't stay open — close it if it's the one being disabled.
+    if (!val && selectedChat?.id === c.id) setSelectedChat(null);
     setAiBusy((m) => ({ ...m, [c.id]: true }));
     try {
       await api.setChatAi(c.id, val);
@@ -2185,7 +2173,7 @@ function ChatsView({ T, wallpaper }) {
           </div>
           <div className={`text-[11px] ${T.muted} flex items-start gap-1.5`}>
             <Sparkles className="w-3 h-3 mt-0.5 shrink-0 text-[#25d366]" />
-            <span>Toggle a chat on to let WhatsPlan sort it into meetings, tasks &amp; notices.</span>
+            <span>Chats are locked until you toggle them on — that unlocks the chat and lets WhatsPlan sort it into meetings, tasks &amp; notices.</span>
           </div>
           <ConnectBanner T={T} session={session} />
         </div>
@@ -2200,12 +2188,22 @@ function ChatsView({ T, wallpaper }) {
             <div>
               {filtered.map((c) => {
                 const active = selectedChat?.id === c.id;
+                const unlocked = aiOn(c);
                 return (
                   <div key={c.id}
                     className={`w-full px-3 py-2.5 flex items-center gap-3 border-b border-current/5 ${active ? T.chipActive : "hover:bg-current/5"}`}>
-                    <button onClick={() => setSelectedChat(c)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                      <div className={`${T.accent} w-10 h-10 rounded-full grid place-items-center font-semibold shrink-0`}>
+                    <button
+                      onClick={() => unlocked && setSelectedChat(c)}
+                      disabled={!unlocked}
+                      title={unlocked ? c.name : "Locked — turn on AI reading to open this chat"}
+                      className={`flex items-center gap-3 min-w-0 flex-1 text-left ${unlocked ? "" : "opacity-60 cursor-not-allowed"}`}>
+                      <div className={`${T.accent} w-10 h-10 rounded-full grid place-items-center font-semibold shrink-0 relative`}>
                         {(c.name || "?").slice(0, 1).toUpperCase()}
+                        {!unlocked && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-black/70 grid place-items-center ring-2 ring-current/10">
+                            <Lock className="w-2.5 h-2.5 text-white" />
+                          </span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
@@ -2213,14 +2211,22 @@ function ChatsView({ T, wallpaper }) {
                           <span className={`text-[10px] shrink-0 ${active ? "" : T.muted}`}>{fmtTime(c.timestamp)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          {aiOn(c) && <Sparkles className="w-3 h-3 shrink-0 text-[#25d366]" />}
-                          <span className={`text-xs truncate ${active ? "" : T.muted}`}>{c.lastMessage || (c.isGroup ? "Group" : "")}</span>
+                          {unlocked ? (
+                            <>
+                              <Sparkles className="w-3 h-3 shrink-0 text-[#25d366]" />
+                              <span className={`text-xs truncate ${active ? "" : T.muted}`}>{c.lastMessage || (c.isGroup ? "Group" : "")}</span>
+                            </>
+                          ) : (
+                            <span className={`text-xs truncate ${T.muted} inline-flex items-center gap-1`}>
+                              <Lock className="w-3 h-3 shrink-0" /> Turn on AI reading to open
+                            </span>
+                          )}
                         </div>
                       </div>
                     </button>
                     <div className="flex items-center gap-2 shrink-0">
-                      {c.unread ? <span className="bg-[#25d366] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{c.unread}</span> : null}
-                      <AiToggle T={T} on={aiOn(c)} busy={!!aiBusy[c.id]} onClick={() => toggleAi(c)} />
+                      {unlocked && c.unread ? <span className="bg-[#25d366] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{c.unread}</span> : null}
+                      <AiToggle T={T} on={unlocked} busy={!!aiBusy[c.id]} onClick={() => toggleAi(c)} />
                     </div>
                   </div>
                 );
@@ -2286,51 +2292,6 @@ function ChatsView({ T, wallpaper }) {
 }
 
 /* ====================================================================== */
-/* CallsView — backend-ready shell                                          */
-/* ====================================================================== */
-function CallsView({ T }) {
-  const { status } = useSession();
-  const connected = status === "ready";
-  // Call history isn't exposed by whatsapp-web.js; reflect connection only.
-  const [calls, setCalls] = useState([]);
-  const [filter, setFilter] = useState("all");
-  const filters = ["all", "missed", "incoming", "outgoing"];
-
-  return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto relative min-h-full">
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text}`}>Calls</h2>
-        <div className={`${T.badge} px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 ${T.text}`}>
-          <span className={`w-2 h-2 rounded-full ${connected ? "bg-[#25d366]" : "bg-gray-400"}`} />
-          {connected ? "Connected" : "Not connected"}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {filters.map((f) => (
-          // TODO: filter when backend data available
-          <button key={f} onClick={()=>setFilter(f)} className={`${filter===f?T.chipActive:T.chipIdle} px-3 py-1 rounded-full text-xs font-medium capitalize`}>{f}</button>
-        ))}
-      </div>
-      <div className={`${T.panel} p-8 text-center`}>
-        {calls.length === 0 ? (
-          <>
-            <svg viewBox="0 0 64 64" className="w-14 h-14 mx-auto mb-3 opacity-60"><path d="M16 14c0-2 2-4 4-4h6l3 9-5 4c2 6 7 11 13 13l4-5 9 3v6c0 2-2 4-4 4C28 44 14 30 14 14z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/></svg>
-            <div className={`font-semibold ${T.text}`}>No call history</div>
-            <div className={`${T.muted} text-sm mt-1`}>Call history will appear here once WhatsApp is connected.</div>
-          </>
-        ) : null}
-      </div>
-      <button
-        onClick={() => { /* TODO: initiate call via backend */ }}
-        className={`${T.btn} fixed md:absolute bottom-20 md:bottom-6 right-6 w-14 h-14 rounded-full shadow-lg grid place-items-center`}
-        aria-label="New call">
-        <Phone className="w-5 h-5" />
-      </button>
-    </div>
-  );
-}
-
-/* ====================================================================== */
 /* Planner view — AI-sorted Meetings / Tasks / Announcements                */
 /* ====================================================================== */
 const PRIO_COLORS = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
@@ -2343,79 +2304,6 @@ function SourceLine({ T, item }) {
       <span>in {item.chatName}</span>
       {typeof item.confidence === "number" && (
         <span className={`${T.badge} px-1.5 py-0.5 rounded-full`}>{Math.round(item.confidence * 100)}%</span>
-      )}
-    </div>
-  );
-}
-
-/* ====================================================================== */
-/* SorterTester — paste text, watch the AI file it (no WhatsApp needed)      */
-/* ====================================================================== */
-function SorterTester({ T }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
-
-  const examples = [
-    "Standup on Zoom tomorrow 9am https://zoom.us/j/123",
-    "@Sara please send the report by Friday",
-    "FYI office closed Monday for the public holiday",
-  ];
-
-  async function run(t) {
-    const body = (t ?? text).trim();
-    if (!body) return;
-    setBusy(true); setError(""); setResult(null);
-    try {
-      const r = await api.classifyText(body);
-      setResult(r.classification);
-    } catch (e) {
-      setError(e?.message || "Failed — is the backend running?");
-    } finally { setBusy(false); }
-  }
-
-  const cat = result?.category;
-  const catColor = cat === "meeting" ? "bg-blue-500/15 text-blue-600"
-    : cat === "task" ? "bg-emerald-500/15 text-emerald-600"
-    : cat === "announcement" ? "bg-amber-500/15 text-amber-600"
-    : "bg-gray-500/15 text-gray-500";
-
-  return (
-    <div className={`${T.panel} p-4 mb-5`}>
-      <div className={`font-semibold ${T.text} mb-1 inline-flex items-center gap-2`}><Sparkles className="w-4 h-4 text-[#25d366]" /> Test the AI sorter</div>
-      <p className={`text-xs ${T.muted} mb-3`}>Paste any message — the AI classifies it and, if it's a meeting/task/notice, files it below. No WhatsApp needed.</p>
-      <div className="flex flex-col sm:flex-row gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && run()}
-          placeholder="e.g. standup tomorrow 9am zoom.us/j/123"
-          className={`${T.input} flex-1 rounded-lg px-3 py-2 text-sm`} />
-        <button onClick={() => run()} disabled={busy || !text.trim()}
-          className={`${T.btn} px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50`}>
-          {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Sort it
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mt-2">
-        {examples.map((ex) => (
-          <button key={ex} onClick={() => { setText(ex); run(ex); }}
-            className={`${T.chipIdle} text-[11px] px-2 py-1 rounded-full`}>{ex.slice(0, 30)}…</button>
-        ))}
-      </div>
-      {error && <div className="text-xs text-red-500 mt-2">{error}</div>}
-      {result && (
-        <div className={`${T.panelSoft} mt-3 p-3 text-xs space-y-1`}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`px-2 py-0.5 rounded-full font-semibold uppercase ${catColor}`}>{cat}</span>
-            <span className={T.muted}>{Math.round((result.confidence || 0) * 100)}% confidence</span>
-            {cat !== "chatter" && <span className="text-[#25d366] font-medium">→ filed under {cat}s ↓</span>}
-          </div>
-          {result.title && <div className={T.text}><b>Title:</b> {result.title}</div>}
-          {result.datetime && <div className={T.text}><b>When:</b> {result.datetime}</div>}
-          {result.link && <div className={T.text}><b>Link:</b> {result.link}</div>}
-          {result.assignee && <div className={T.text}><b>Assignee:</b> {result.assignee}</div>}
-          {result.due && <div className={T.text}><b>Due:</b> {result.due}</div>}
-          {result.summary && <div className={T.muted}>{result.summary}</div>}
-          {cat === "chatter" && <div className={T.muted}>Not actionable — the sorter skips this (nothing filed).</div>}
-        </div>
       )}
     </div>
   );
@@ -2441,12 +2329,10 @@ function PlannerView({ T }) {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto w-full">
       <div className="mb-4">
         <h2 className={`font-[var(--font-display)] text-2xl font-bold ${T.text}`}>Planner</h2>
-        <p className={`${T.muted} text-sm`}>Meetings, tasks and announcements the agent pulled from your group chats.</p>
+        <p className={`${T.muted} text-sm`}>Meetings, tasks and announcements WhatsPlan pulled from your chats.</p>
       </div>
 
       <div className="mb-4"><ConnectBanner T={T} session={session} /></div>
-
-      <SorterTester T={T} />
 
       {/* sub-tabs */}
       <div className="flex flex-wrap gap-2 mb-5">
@@ -2635,15 +2521,6 @@ const GLOW_COLORS = [
   { name: "Crimson",  c: "#f87171" },
 ];
 
-const CONNECTION_MAP = [
-  { feature: "ChatsView", endpoint: "GET /api/chats", file: "src/lib/api.ts → server/routes/chats.ts" },
-  { feature: "BoardsView", endpoint: "GET/PUT /api/boards", file: "src/lib/api.ts → server/routes/boards.ts" },
-  { feature: "CardModal", endpoint: "PATCH /api/tasks/:id", file: "src/lib/api.ts → server/routes/tasks.ts" },
-  { feature: "ShareModal", endpoint: "POST /api/boards/:id/publish", file: "server/routes/boards.ts" },
-  { feature: "Login", endpoint: "POST /api/session/start", file: "server/whatsapp/client.ts" },
-  { feature: "QR connect", endpoint: "WS /ws/whatsapp-qr", file: "server/ws/qr.ts" },
-  { feature: "BadgesView", endpoint: "GET /api/state/gamification", file: "server/routes/state.ts" },
-];
 
 function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, setSettings, glowColor, setGlowColor }) {
   const [section, setSection] = useState("account");
@@ -2702,44 +2579,6 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
               </div>
 
               <AccountEmailCard T={T} />
-
-              <div className={`${T.panel} p-5`}>
-                <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Smartphone className="w-4 h-4" /> Connect WhatsApp</div>
-                <div className="flex flex-col sm:flex-row gap-4 items-center">
-                  <div className="bg-white p-3 rounded-xl shrink-0">
-                    <QRCodeSVG value="https://whatsplan.app/connect?session=DEMO_SESSION_ID" size={140} level="M" includeMargin />
-                  </div>
-                  <ol className={`text-sm ${T.muted} space-y-1 list-decimal list-inside`}>
-                    <li>Open WhatsApp on your phone</li>
-                    <li>Tap Menu (⋮) or Settings</li>
-                    <li>Tap <b>Linked Devices</b> → <b>Link a Device</b></li>
-                    <li>Scan this QR code</li>
-                  </ol>
-                </div>
-                <div className={`${T.panelSoft} mt-3 p-3 text-[11px] ${T.muted}`}>
-                  Backend: stream the live QR over <code>WS: /ws/whatsapp-qr</code>. Files to create:
-                  <div className="mt-1 font-mono text-[10px] space-y-0.5">
-                    <div>server/whatsapp/client.ts</div>
-                    <div>server/routes/session.ts</div>
-                    <div>server/ws/qr.ts</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${T.panel} p-5`}>
-                <div className={`font-semibold ${T.text} mb-3 inline-flex items-center gap-2`}><Database className="w-4 h-4" /> Frontend → Backend connection map</div>
-                <div className="space-y-1.5">
-                  {CONNECTION_MAP.map((r) => (
-                    <div key={r.feature} className={`${T.panelSoft} p-2.5 rounded-lg grid grid-cols-1 sm:grid-cols-[1fr_1.3fr] gap-1`}>
-                      <div>
-                        <span className="text-sm font-medium text-[#25d366]">{r.feature}</span>
-                        <span className={`block text-[11px] ${T.muted}`}>{r.endpoint}</span>
-                      </div>
-                      <code className={`text-[10px] ${T.muted} self-center break-all`}>{r.file}</code>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </>
           )}
 
@@ -2937,7 +2776,7 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
           {section === "help" && (
             <div className={`${T.panel} p-5 space-y-2`}>
               <div className="flex items-center gap-2 mb-2"><HelpCircle className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>Help & About</div></div>
-              <div className={`${T.panelSoft} p-3 text-sm ${T.text}`}>WhatsPlan v1.0 — Frontend preview. Backend coming soon.</div>
+              <div className={`${T.panelSoft} p-3 text-sm ${T.text}`}>WhatsPlan v1.0 · Chat, plan, win the day.</div>
               <div className={`${T.panelSoft} p-3 text-sm ${T.text} flex items-center gap-2`}><Info className="w-4 h-4" /> Tip: double-click a card on Kanban boards to edit it.</div>
             </div>
           )}
@@ -2952,7 +2791,6 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
 /* ====================================================================== */
 const TABS = [
   { id: "chats",   label: "Chats",    icon: MessageSquare },
-  { id: "calls",   label: "Calls",    icon: Phone },
   { id: "planner", label: "Planner",  icon: ListChecks },
   { id: "boards",  label: "Boards",   icon: Kanban },
   { id: "badges",  label: "Badges",   icon: Award },
@@ -3209,8 +3047,8 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
     ? { ["--wa-glow"]: glowColor, fontSize: settings.fontSize }
     : { fontSize: settings.fontSize };
 
-  // Bottom nav set (mobile) — merge calls into chats per spec
-  const BOTTOM_TABS = TABS.filter((t) => t.id !== "calls");
+  // Bottom nav set (mobile) — same tabs as the desktop rail.
+  const BOTTOM_TABS = TABS;
 
   return (
     <div className={`h-screen w-full ${T.bg} flex overflow-hidden`} style={styleVars}>
@@ -3276,7 +3114,6 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
               className="h-full"
             >
               {tab === "chats"    && <ChatsView   T={T} wallpaper={settings.wallpaper} />}
-              {tab === "calls"    && <CallsView   T={T} />}
               {tab === "planner"  && <PlannerView T={T} />}
               {tab === "boards"   && <BoardsView  T={T} boards={boards} setBoards={setBoards} gam={gam} />}
               {tab === "badges"   && <BadgesView  T={T} gam={gam} />}

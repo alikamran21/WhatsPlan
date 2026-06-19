@@ -6,10 +6,10 @@ The "Listener + Classifier + API" service behind the WhatsPlan frontend.
 WhatsApp group  ──▶  whatsapp-web.js (listener)
                           │  every message
                           ▼
-                     Gemini classifier ──▶ meeting | task | announcement | chatter
+                     Groq classifier  ──▶ meeting | task | announcement | chatter
                           │
                           ▼
-                   Store (Firestore or local file)
+                   Store (local JSON file)
                           │
               REST + Socket.IO  ──▶  React frontend
 ```
@@ -19,14 +19,14 @@ WhatsApp group  ──▶  whatsapp-web.js (listener)
 | Component   | Tech                                    |
 | ----------- | --------------------------------------- |
 | Listener    | `whatsapp-web.js` (headless Chromium)   |
-| Classifier  | Google Gemini (`gemini-1.5-flash`)      |
-| Storage     | Firebase Firestore **or** local JSON    |
+| Classifier  | Groq (`llama-3.3-70b-versatile`), heuristic fallback |
+| Storage     | Local JSON file (`data/store.json`)     |
+| Email OTP   | Brevo (HTTP API)                        |
 | API         | Express (REST) + Socket.IO (realtime)   |
 | Runtime     | Node.js ≥ 18 (ESM)                      |
 
-Both the Gemini key and Firebase credentials are **optional** — without them the
-server still runs using a built-in heuristic classifier and a local file store,
-so you can develop end-to-end before signing up for anything.
+The Groq key is **optional** — without it the server runs a built-in heuristic
+classifier, so you can develop end-to-end before signing up for anything.
 
 ## Setup
 
@@ -45,19 +45,10 @@ Then link a device:
 3. WhatsApp → **Settings → Linked devices → Link a device** → scan it.
 4. Status moves `qr → authenticated → ready`. Messages in watched groups now flow in.
 
-### Enabling Gemini
+### Enabling Groq (smarter sorting)
 
-Get a free key at <https://aistudio.google.com/app/apikey>, then set
-`GEMINI_API_KEY` in `.env`. Restart. Until then the heuristic classifier runs.
-
-### Enabling Firestore
-
-1. Create a Firebase project, add a Firestore database.
-2. Project settings → **Service accounts → Generate new private key** → save the JSON.
-3. In `.env`: set `GOOGLE_APPLICATION_CREDENTIALS=/abs/path/to/key.json`
-   and `FIREBASE_PROJECT_ID=your-project-id`. Restart.
-
-Until configured, data is persisted to `data/store.json`.
+Get a free key at <https://console.groq.com> → API Keys, then set `GROQ_API_KEY`
+in `.env` and restart. Until then the heuristic (keyword) classifier runs.
 
 ## API
 
@@ -83,6 +74,9 @@ Until configured, data is persisted to `data/store.json`.
 meeting/task/announcement when its chat has `aiEnabled: true`. Flip it from the
 toggle on each chat row in the UI.
 
+**Test the sorter** — `POST /api/classify { text }` runs any text through the
+classifier and files the result, so you can try the AI without WhatsApp.
+
 ### User profile
 The user is the linked WhatsApp account. Their email lives in the `users`
 collection so the OTP knows where to send the code — no need to retype it.
@@ -96,21 +90,14 @@ collection so the OTP knows where to send the code — no need to retype it.
 | Method | Path                    | Purpose                                          |
 | ------ | ----------------------- | ------------------------------------------------ |
 | GET    | `/api/verify`           | `{ verified, email, verifiedAt }` for the current user |
-| POST   | `/api/verify/request`   | sends a 6-digit code to the user's stored email. Optional `{ email }` sets it first. Returns `{ ok, sent, email, devCode? }` (`devCode` only when no email provider is configured). |
+| POST   | `/api/verify/request`   | sends a 6-digit code to the user's stored email. Optional `{ email }` sets it first. Returns `{ ok, sent, email, devCode? }` (`devCode` only when `BREVO_API_KEY` is unset). |
 | POST   | `/api/verify/confirm`   | `{ code }` → verifies the user and unlocks AI reading |
 
-Email is delivered via a third-party HTTP API (no SMTP). Choose one with
-`EMAIL_PROVIDER` and set its key in `.env`:
-
-| Provider | Key | Reaches any recipient? |
-| --- | --- | --- |
-| `resend` | `RESEND_API_KEY` | Only your Resend account email until you verify a domain |
-| `brevo` | `BREVO_API_KEY` | **Yes** — just verify a sender email (no domain) |
-| `sendgrid` | `SENDGRID_API_KEY` | Yes — after single-sender verification |
-
-Leave the chosen provider's key blank and the code is logged to the console and
-echoed in the response so you can test with zero setup. For `brevo`/`sendgrid`,
-set `EMAIL_FROM` to your verified sender.
+Email is delivered via **[Brevo](https://www.brevo.com)** (HTTP API, no SMTP).
+Set `BREVO_API_KEY` and a verified `EMAIL_FROM` sender in `.env`. Brevo's free
+tier delivers to any recipient with just a verified sender (no domain). Leave
+`BREVO_API_KEY` blank and the code is logged to the console and echoed in the
+response so you can test with zero setup.
 
 ### Derived items
 `:col` ∈ `meetings | tasks | announcements`

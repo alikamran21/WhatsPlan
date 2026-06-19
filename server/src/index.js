@@ -42,8 +42,9 @@ startRetention(store, (count) => io.emit("purged", { count }));
 
 server.listen(config.port, () => {
   console.log(`\nWhatsPlan backend → http://localhost:${config.port}`);
-  console.log(`  Classifier: ${config.gemini.enabled ? `Gemini (${config.gemini.model})` : "heuristic fallback"}`);
-  console.log(`  Storage:    ${config.firebaseEnabled ? "Firestore" : "local file (data/store.json)"}`);
-  console.log(`  Watching:   ${config.watchChats.length ? config.watchChats.join(", ") : "all group chats"}`);
+  console.log(`  Classifier: ${config.groq.enabled ? `Groq (${config.groq.model})` : "heuristic (no GROQ_API_KEY)"}`);
+  console.log(`  Email:      ${config.email.enabled ? "Brevo" : "console / devEcho (no BREVO_API_KEY)"}`);
+  console.log(`  Storage:    local file (data/store.json)`);
+  console.log(`  Watching:   ${config.watchChats.length ? config.watchChats.join(", ") : (config.watchDms ? "all chats (groups + DMs)" : "all groups")}`);
   console.log(`\nPOST /api/session/start to link a device, then scan the QR.\n`);
 });

@@ -20,8 +20,6 @@ services:
       # Persists the WhatsApp login + local store so you don't rescan the QR
       # on every restart.
       - wa-data:/app/data
-      # Firebase Admin service-account key (read-only). Gitignored — never commit.
-      - ./server/serviceAccount.json:/app/serviceAccount.json:ro
     restart: unless-stopped
 
   # ── Frontend: the React/TanStack app (dev server) ─────────────────────
