@@ -184,6 +184,7 @@ export default function PixelCat({
 
   /* ---- mutable animation refs (avoid per-frame React renders) ---- */
   const canvasRef = useRef(null);
+  const catRectRef = useRef({ left: 0, top: 0, right: 0, bottom: 0 }); // cached screen rect (avoids getBoundingClientRect on mousemove)
   const stateRef = useRef("sleep");
   const frameRef = useRef(0);
   const flipRef = useRef(false);
@@ -248,6 +249,7 @@ export default function PixelCat({
   useEffect(() => {
     if (hidden) return;
     let raf, lastFrame = performance.now();
+    let lastSig = "", lastX = NaN, lastY = NaN;   // skip redraws/reflows when nothing changed
     const loop = (now) => {
       // advance frame at 8fps
       if (now - lastFrame >= FRAME_MS) {
@@ -273,14 +275,24 @@ export default function PixelCat({
       } else if (movingRef.current && !dragRef.current.active) {
         movingRef.current = false; if (stateRef.current === "walk") stateRef.current = idleState();
       }
-      // redraw
+      // redraw / reflow only when something actually changed (cheap no-op otherwise)
       const cv = canvasRef.current;
       if (cv) {
-        const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
-        drawFrame(ctx, sheetRef.current, stateRef.current, frameRef.current, { flip: flipRef.current });
-        cv.style.left = posRef.current.x + "px";
-        cv.parentElement.style.left = posRef.current.x + "px";
-        cv.parentElement.style.top = posRef.current.y + "px";
+        const px = posRef.current.x, py = posRef.current.y;
+        const sig = stateRef.current + "|" + frameRef.current + "|" + (flipRef.current ? 1 : 0);
+        if (sig !== lastSig) {
+          const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+          drawFrame(ctx, sheetRef.current, stateRef.current, frameRef.current, { flip: flipRef.current });
+          lastSig = sig;
+        }
+        if (px !== lastX || py !== lastY) {
+          const parent = cv.parentElement;
+          if (parent) { parent.style.left = px + "px"; parent.style.top = py + "px"; }
+          lastX = px; lastY = py;
+        }
+        // cache screen rect for the (frequent) mousemove handler
+        const w = BASE_W * sizeScale, h = BASE_H * sizeScale;
+        catRectRef.current = { left: px, top: py, right: px + w, bottom: py + h };
       }
       raf = requestAnimationFrame(loop);
     };
@@ -324,9 +336,8 @@ export default function PixelCat({
       markActivity();
       // fast cursor → alert
       if (speed > 800 && !cd()) { setCd(); trigger("alert", 1500); say("Woah!! 👀", 1500); }
-      // wiggle over cat → loving
-      const cv = canvasRef.current; if (!cv) return;
-      const r = cv.getBoundingClientRect();
+      // wiggle over cat → loving (uses the rect cached by the rAF loop — no layout thrash)
+      const r = catRectRef.current;
       const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
       if (over && dist < cfg.sensitivity && dist > 2) {
         const w = wiggleRef.current; if (now - w.t < 400) w.count++; else w.count = 1; w.t = now;

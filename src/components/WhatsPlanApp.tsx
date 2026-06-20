@@ -231,6 +231,17 @@ const LS = {
   },
 };
 
+/* Safe unique id. crypto.randomUUID only exists in secure contexts (https /
+ * localhost); inside the WhatsApp in-app browser or over http it's undefined and
+ * throws — which silently broke "add" everywhere (cards, events, columns…). */
+function uid() {
+  try {
+    const c = (globalThis as any).crypto;
+    if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  } catch { /* fall through */ }
+  return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+
 function useLocal(key, initial) {
   const [v, setV] = useState(initial);
   useEffect(() => { setV(LS.get(key, initial)); /* eslint-disable-next-line */ }, []);
@@ -261,10 +272,10 @@ function Splash({ onDone }) {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState(0); // 0 aurora, 1 logo, 2 tagline
   useEffect(() => {
-    const t1 = setTimeout(() => setStage(1), 600);
-    const t2 = setTimeout(() => setStage(2), 1600);
-    const t3 = setTimeout(onDone, 3600);
-    const iv = setInterval(() => setProgress((p) => Math.min(100, p + 3)), 90);
+    const t1 = setTimeout(() => setStage(1), 350);
+    const t2 = setTimeout(() => setStage(2), 900);
+    const t3 = setTimeout(onDone, 1800);
+    const iv = setInterval(() => setProgress((p) => Math.min(100, p + 6)), 80);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearInterval(iv); };
   }, [onDone]);
 
@@ -417,9 +428,7 @@ function Splash({ onDone }) {
 /* ====================================================================== */
 /* Login                                                                    */
 /* ====================================================================== */
-function Login() {
-  const wa = useSession();
-
+function Login({ wa }) {
   // Auto-boot the WhatsApp session as soon as the backend is reachable.
   useEffect(() => {
     if (wa.online && wa.status === "disconnected") wa.start();
@@ -675,17 +684,17 @@ const BOARD_TYPES = [
 ];
 
 function newBoard(type, name) {
-  const base = { id: crypto.randomUUID(), name, type, createdAt: Date.now() };
+  const base = { id: uid(), name, type, createdAt: Date.now() };
   if (type === "kanban") return { ...base, columns: [
-    { id: crypto.randomUUID(), name: "To do", cards: [] },
-    { id: crypto.randomUUID(), name: "Doing", cards: [] },
-    { id: crypto.randomUUID(), name: "Done",  cards: [] },
+    { id: uid(), name: "To do", cards: [] },
+    { id: uid(), name: "Doing", cards: [] },
+    { id: uid(), name: "Done",  cards: [] },
   ]};
   if (type === "table") return { ...base, columns: ["Title", "Owner", "Status"], rows: [] };
   if (type === "roadmap") return { ...base, lanes: [
-    { id: crypto.randomUUID(), name: "Now",   items: [] },
-    { id: crypto.randomUUID(), name: "Next",  items: [] },
-    { id: crypto.randomUUID(), name: "Later", items: [] },
+    { id: uid(), name: "Now",   items: [] },
+    { id: uid(), name: "Next",  items: [] },
+    { id: uid(), name: "Later", items: [] },
   ]};
   if (type === "calendar") return { ...base, events: [] };
   if (type === "checklist") return { ...base, items: [] };
@@ -727,29 +736,29 @@ function convertBoard(board, newType) {
   const base = { id: board.id, name: board.name, type: newType, createdAt: board.createdAt };
   if (newType === "kanban") {
     const cols = [
-      { id: crypto.randomUUID(), name: "To do", cards: [] },
-      { id: crypto.randomUUID(), name: "Doing", cards: [] },
-      { id: crypto.randomUUID(), name: "Done", cards: [] },
+      { id: uid(), name: "To do", cards: [] },
+      { id: uid(), name: "Doing", cards: [] },
+      { id: uid(), name: "Done", cards: [] },
     ];
     for (const it of items) {
       const idx = (it.status === "done" || it.done) ? 2 : (it.status === "in-progress" || it.status === "in-review") ? 1 : 0;
-      cols[idx].cards.push({ id: crypto.randomUUID(), ...it });
+      cols[idx].cards.push({ id: uid(), ...it });
     }
     return { ...base, columns: cols };
   }
-  if (newType === "checklist") return { ...base, items: items.map((it) => ({ id: crypto.randomUUID(), title: it.title, done: it.done, due: it.due })) };
-  if (newType === "calendar") return { ...base, events: items.filter((it) => it.due).map((it) => ({ id: crypto.randomUUID(), title: it.title, date: it.due, time: "", color: "#25d366", note: it.description || "" })) };
+  if (newType === "checklist") return { ...base, items: items.map((it) => ({ id: uid(), title: it.title, done: it.done, due: it.due })) };
+  if (newType === "calendar") return { ...base, events: items.filter((it) => it.due).map((it) => ({ id: uid(), title: it.title, date: it.due, time: "", color: "#25d366", note: it.description || "" })) };
   if (newType === "roadmap") {
     const lanes = [
-      { id: crypto.randomUUID(), name: "Now", items: [] },
-      { id: crypto.randomUUID(), name: "Next", items: [] },
-      { id: crypto.randomUUID(), name: "Later", items: [] },
+      { id: uid(), name: "Now", items: [] },
+      { id: uid(), name: "Next", items: [] },
+      { id: uid(), name: "Later", items: [] },
     ];
-    for (const it of items) lanes[(it.status === "done" || it.done) ? 2 : 0].items.push({ id: crypto.randomUUID(), title: it.title, due: it.due, done: it.done });
+    for (const it of items) lanes[(it.status === "done" || it.done) ? 2 : 0].items.push({ id: uid(), title: it.title, due: it.due, done: it.done });
     return { ...base, lanes };
   }
-  if (newType === "table") return { ...base, columns: ["Title", "Owner", "Status"], rows: items.map((it) => ({ id: crypto.randomUUID(), values: [it.title, it.assignee || "", STATUSES.find((s) => s.id === it.status)?.label || (it.done ? "Done" : "To Do")] })) };
-  if (newType === "notes") return { ...base, notes: items.map((it) => ({ id: crypto.randomUUID(), text: it.title + (it.description ? "\n" + it.description : "") })) };
+  if (newType === "table") return { ...base, columns: ["Title", "Owner", "Status"], rows: items.map((it) => ({ id: uid(), values: [it.title, it.assignee || "", STATUSES.find((s) => s.id === it.status)?.label || (it.done ? "Done" : "To Do")] })) };
+  if (newType === "notes") return { ...base, notes: items.map((it) => ({ id: uid(), text: it.title + (it.description ? "\n" + it.description : "") })) };
   return { ...base };
 }
 
@@ -1121,7 +1130,7 @@ function KanbanView({ T, board, onChange, gam, allBoards = [], onMoveCard }) {
     if (!title) return;
     gam.grant("first_card");
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
-      ? { ...c, cards: [...c.cards, { id: crypto.randomUUID(), title, done: false, description: "", priority: "medium", due: "", status: "todo", assignee: "", mentions: [], tags: [] }] } : c) });
+      ? { ...c, cards: [...c.cards, { id: uid(), title, done: false, description: "", priority: "medium", due: "", status: "todo", assignee: "", mentions: [], tags: [] }] } : c) });
   }
   function toggle(colId, cardId) {
     onChange({ ...board, columns: board.columns.map((c) => c.id === colId
@@ -1141,7 +1150,7 @@ function KanbanView({ T, board, onChange, gam, allBoards = [], onMoveCard }) {
       ? { ...c, cards: c.cards.filter((k) => k.id !== cardId) } : c) });
   }
   function addColumn() {
-    onChange({ ...board, columns: [...board.columns, { id: crypto.randomUUID(), name: "New column", cards: [] }] });
+    onChange({ ...board, columns: [...board.columns, { id: uid(), name: "New column", cards: [] }] });
   }
   function renameColumn(id, name) {
     onChange({ ...board, columns: board.columns.map((c) => c.id === id ? { ...c, name } : c) });
@@ -1423,7 +1432,7 @@ function AddInline({ T, placeholder, onAdd }) {
 function TableView({ T, board, onChange, gam }) {
   function addRow() {
     gam.grant("first_card");
-    onChange({ ...board, rows: [...board.rows, { id: crypto.randomUUID(), values: board.columns.map(() => "") }] });
+    onChange({ ...board, rows: [...board.rows, { id: uid(), values: board.columns.map(() => "") }] });
   }
   function setCell(rowId, idx, val) {
     onChange({ ...board, rows: board.rows.map((r) => r.id === rowId
@@ -1483,10 +1492,10 @@ function RoadmapView({ T, board, onChange, gam }) {
     if (!title) return;
     gam.grant("first_card");
     onChange({ ...board, lanes: board.lanes.map((l) => l.id === laneId
-      ? { ...l, items: [...l.items, { id: crypto.randomUUID(), title }] } : l) });
+      ? { ...l, items: [...l.items, { id: uid(), title }] } : l) });
   }
   function addLane() {
-    onChange({ ...board, lanes: [...board.lanes, { id: crypto.randomUUID(), name: "New phase", items: [] }] });
+    onChange({ ...board, lanes: [...board.lanes, { id: uid(), name: "New phase", items: [] }] });
   }
   return (
     <div className="space-y-3">
@@ -1543,7 +1552,7 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
     if (!ev.title) { setEditing(null); return; }
     const events = board.events || [];
     if (ev.id) onChange({ ...board, events: events.map(e => e.id === ev.id ? ev : e) });
-    else onChange({ ...board, events: [...events, { ...ev, id: crypto.randomUUID() }] });
+    else onChange({ ...board, events: [...events, { ...ev, id: uid() }] });
     setEditing(null);
   }
   function deleteEvent(id) { onChange({ ...board, events: (board.events || []).filter(e => e.id !== id) }); setEditing(null); }
@@ -1585,16 +1594,18 @@ function CalendarView({ T, board, onChange, allBoards = [] }) {
              const refs = d ? refsOn(d) : [];
              return (
                <div key={i}
-                 className={`${d ? T.panelSoft : "opacity-0 pointer-events-none"} min-h-[48px] sm:min-h-[88px] p-1.5 text-xs ${T.text} ${isToday ? "ring-2 ring-[#25d366]" : ""} relative group`}>
+                 onClick={() => d && openNew(d)}
+                 title={d ? "Click to add an event" : undefined}
+                 className={`${d ? T.panelSoft + " cursor-pointer hover:ring-1 hover:ring-[#25d366]/50" : "opacity-0 pointer-events-none"} min-h-[48px] sm:min-h-[88px] p-1.5 text-xs ${T.text} ${isToday ? "ring-2 ring-[#25d366]" : ""} relative group`}>
                  {d && (
                    <>
-                     <button onClick={() => openNew(d)} className={`w-full text-left font-semibold ${isToday ? "text-[#25d366]" : "opacity-70"} hover:opacity-100`}>
+                     <div className={`font-semibold ${isToday ? "text-[#25d366]" : "opacity-70"}`}>
                        {d}{isToday && <span className="ml-1 text-[9px] uppercase tracking-wider">today</span>}
-                     </button>
+                     </div>
                      <div className="mt-1 space-y-0.5">
                        {evs.slice(0, 3).map((e) => (
                          <button key={e.id}
-                           onClick={() => setEditing(e)}
+                           onClick={(ev) => { ev.stopPropagation(); setEditing(e); }}
                            className="w-full text-left text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1"
                            style={{ background: (e.color || "#25d366") + "33", color: e.color || "#25d366" }}>
                            {e.time && <span className="font-semibold">{e.time}</span>} {e.title}
@@ -1731,7 +1742,7 @@ function ChecklistView({ T, board, onChange, gam }) {
   function add(title) {
     if (!title) return;
     gam.grant("first_card");
-    onChange({ ...board, items: [...board.items, { id: crypto.randomUUID(), title, done: false }] });
+    onChange({ ...board, items: [...board.items, { id: uid(), title, done: false }] });
   }
   function toggle(id) {
     onChange({ ...board, items: board.items.map((i) => i.id === id ? { ...i, done: !i.done } : i) });
@@ -1762,7 +1773,7 @@ function ChecklistView({ T, board, onChange, gam }) {
 /* ---- Notes ---- */
 function NotesView({ T, board, onChange }) {
   function add() {
-    onChange({ ...board, notes: [{ id: crypto.randomUUID(), text: "" }, ...board.notes] });
+    onChange({ ...board, notes: [{ id: uid(), text: "" }, ...board.notes] });
   }
   function update(id, text) {
     onChange({ ...board, notes: board.notes.map((n) => n.id === id ? { ...n, text } : n) });
@@ -2758,7 +2769,7 @@ const DEFAULT_SETTINGS = {
   pixelCatEnabled: true, pixelCatRoaming: true, pixelCatTheme: "green_clay", pixelCatSize: 1,
 };
 
-function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
+function AppShell({ user, themeKey, setTheme, onLogout, gam, reconnecting }) {
   const T = THEMES[themeKey] || THEMES.default;
   const [tab, setTab] = useState("boards");
   const [boards, setBoards] = useBoards();
@@ -2775,6 +2786,12 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
 
   return (
     <div className={`h-screen w-full ${T.bg} flex overflow-hidden`} style={styleVars}>
+      {reconnecting && (
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[10005] flex items-center gap-2 bg-amber-500/95 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg">
+          <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          Reconnecting…
+        </div>
+      )}
       {/* Left rail (md+) */}
       <aside className={`${T.sidebar} hidden md:flex w-20 lg:w-64 shrink-0 flex-col`}>
         <div className="p-3 md:p-4 flex items-center gap-2 justify-center lg:justify-start">
@@ -2885,9 +2902,38 @@ export default function WhatsPlanApp() {
   const gam = useGamification();
   const wa = useSession();
 
-  // Your WhatsApp link IS your login. Identity = your WhatsApp account.
-  const linked = wa.status === "ready";
-  const user = linked ? { id: wa.me, wid: wa.me, name: wa.meName || (wa.me ? wa.me.split("@")[0] : "You") } : null;
+  /* Sticky link: your WhatsApp link IS your login. Once it has gone "ready",
+   * stay signed in across transient backend hiccups (server redeploys, socket
+   * reconnects, WhatsApp re-initialising) instead of bouncing the user back to
+   * the QR/loading screen. We only fully sign out on an explicit logout or when
+   * WhatsApp genuinely needs a fresh scan (status === "qr"). */
+  const [wasLinked, setWasLinked] = useState(() => LS.get("wp_linked", false));
+  useEffect(() => {
+    if (wa.status === "ready") {
+      if (!wasLinked) { setWasLinked(true); LS.set("wp_linked", true); }
+      if (wa.me) { LS.set("wp_me", wa.me); if (wa.meName) LS.set("wp_me_name", wa.meName); }
+    }
+  }, [wa.status, wa.me, wa.meName, wasLinked]);
+
+  // If we believe we're linked but the backend isn't "ready" yet, quietly
+  // re-boot the session rather than stalling on a spinner.
+  useEffect(() => {
+    if (wasLinked && wa.online && wa.status === "disconnected") wa.start();
+  }, [wasLinked, wa.online, wa.status, wa.start]);
+
+  const needsScan = wa.status === "qr";              // device truly unlinked
+  const linked = wa.status === "ready" || (wasLinked && !needsScan);
+  const reconnecting = linked && wa.status !== "ready";
+
+  const me = wa.me || (wasLinked ? LS.get("wp_me", null) : null);
+  const meName = wa.meName || (wasLinked ? LS.get("wp_me_name", null) : null);
+  const user = linked ? { id: me, wid: me, name: meName || (me ? String(me).split("@")[0] : "You") } : null;
+
+  const handleLogout = () => {
+    setWasLinked(false);
+    LS.set("wp_linked", false); LS.set("wp_me", null); LS.set("wp_me_name", null);
+    api.logout();
+  };
 
   useEffect(() => { document.title = "WhatsPlan"; }, []);
 
@@ -2896,7 +2942,7 @@ export default function WhatsPlanApp() {
       {!splashDone && <Splash key="splash" onDone={() => setSplashDone(true)} />}
       {splashDone && !linked && (
         <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <Login />
+          <Login wa={wa} />
         </motion.div>
       )}
       {splashDone && linked && !themeKey && (
@@ -2911,7 +2957,8 @@ export default function WhatsPlanApp() {
         <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <AppShell
             user={user} themeKey={themeKey} setTheme={setThemeKey} gam={gam}
-            onLogout={() => { api.logout(); }}
+            reconnecting={reconnecting}
+            onLogout={handleLogout}
           />
         </motion.div>
       )}

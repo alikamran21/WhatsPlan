@@ -177,7 +177,7 @@ async function fetchAll() {
 
   if (session.status === "rejected" && meetings.status === "rejected") {
     setStatus("offline");
-    showEmpty("Can't reach the backend at:\n" + cfg.api + "\nCheck the tunnel is running and the URL is correct.");
+    showEmpty("WhatsPlan is offline right now.\nCheck your connection, then hit refresh ↻ — or open the full app below.");
     return;
   }
 
