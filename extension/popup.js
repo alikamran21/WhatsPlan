@@ -8,6 +8,8 @@
 
 const KEYS = { api: "wp_api_url", site: "wp_site_url" };
 const POLL_MS = 5000;
+// Live deployment — used until the user overrides it in settings.
+const DEFAULT_URL = "https://whatsplan.social";
 
 let cfg = { api: "", site: "" };
 let pollTimer = null;
@@ -25,8 +27,8 @@ const el = (tag, cls, text) => {
 function loadConfig() {
   return new Promise((resolve) => {
     chrome.storage.local.get([KEYS.api, KEYS.site], (v) => {
-      cfg.api = (v[KEYS.api] || "").replace(/\/+$/, "");
-      cfg.site = (v[KEYS.site] || "").replace(/\/+$/, "");
+      cfg.api = (v[KEYS.api] || DEFAULT_URL).replace(/\/+$/, "");
+      cfg.site = (v[KEYS.site] || DEFAULT_URL).replace(/\/+$/, "");
       resolve(cfg);
     });
   });
