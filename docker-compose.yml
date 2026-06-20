@@ -30,21 +30,18 @@ services:
 
   # ── Frontend: the React/TanStack app (dev server) ─────────────────────
   web:
-    build: .
+    build:
+      context: .
+      args:
+        # Production build inlines VITE_API_URL into the client bundle at build
+        # time. Served behind nginx at https://whatsplan.social, which routes
+        # /api/* and /socket.io/* to the api container (same-origin backend).
+        VITE_API_URL: ${VITE_API_URL:-https://whatsplan.social}
     container_name: whatsplan-web
     ports:
-      # Host 8090 → container 8080. NOTE: 8080/3000/5000 are already taken on
-      # this VM (phantasm_webserver, nextjs-app, serenitycare-backend), so the
-      # frontend is published on 8090 instead.
+      # Host 8090 → container 8080 (the SSR Node server). 8080/3000/5000 are
+      # already taken on this VM, so the frontend is published on 8090.
       - "8090:8080"
-    environment:
-      # Served behind nginx at https://whatsplan.social, which routes /api/* and
-      # /socket.io/* to the api container — so the browser calls the backend on
-      # the same origin. Override via a .env beside this file if needed.
-      - VITE_API_URL=${VITE_API_URL:-https://whatsplan.social}
-    volumes:
-      - .:/app
-      - /app/node_modules
     depends_on:
       - api
     restart: unless-stopped

@@ -1,19 +1,34 @@
-# Verified against this project: npm install (471 packages, all public)
-# + npm run dev served a real 200 response on port 8080 with the host
-# override in vite.config.ts applied.
-FROM node:22-slim
+# Production build for the WhatsPlan website (TanStack Start SSR).
+# Two stages: compile a self-contained Node server (.output) with all client
+# assets, then run it on a clean slim image. Replaces the old `npm run dev`.
 
+# ---- Build stage ----
+FROM node:22-slim AS build
 WORKDIR /app
 
-# Install deps first so this layer caches between rebuilds
+# Install deps first so this layer caches between rebuilds.
 COPY package.json ./
 RUN npm install --no-audit --no-fund
 
-# Now copy the rest of the project (vite.config.ts here already has the
-# host: "0.0.0.0" override — without it the dev server crashes in most
-# containers with EAFNOSUPPORT trying to bind IPv6 "::")
 COPY . .
 
-EXPOSE 8080
+# VITE_API_URL is inlined into the client bundle at build time (production
+# builds bake env, they don't read it at runtime). Defaults to the live domain.
+ARG VITE_API_URL=https://whatsplan.social
+ENV VITE_API_URL=$VITE_API_URL
 
-CMD ["npm", "run", "dev"]
+# vite.config.ts sets nitro preset "node-server" → .output/server/index.mjs
+RUN npm run build
+
+# ---- Runtime stage ----
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV HOST=0.0.0.0
+
+# .output is fully self-contained (verified to run without node_modules).
+COPY --from=build /app/.output ./.output
+
+EXPOSE 8080
+CMD ["node", ".output/server/index.mjs"]

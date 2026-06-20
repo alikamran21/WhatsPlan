@@ -12,4 +12,7 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Build a self-contained Node server (.output/server/index.mjs) instead of the
+  // default Cloudflare Worker target, so it runs under `node` on the VM.
+  nitro: { preset: "node-server" },
 });
