@@ -1,11 +1,18 @@
+# Pin the Compose project name so it's isolated from the other stacks already
+# running on this VM (phantasm_*, nextjs-app). `docker compose down/up` here only
+# touches whatsplan-* containers.
+name: whatsplan
+
 services:
-  # ── Backend: WhatsApp listener + Gemini classifier + API ──────────────
+  # ── Backend: WhatsApp listener + classifier + API ─────────────────────
   api:
     build: ./server
+    container_name: whatsplan-api
     # Headless Chromium (whatsapp-web.js) crashes with "Target closed" when the
     # container's shared memory is too small. Give it a roomy /dev/shm.
     shm_size: "1gb"
     ports:
+      # 4000 is free on this VM (not used by phantasm_* / nextjs-app).
       - "4000:4000"
     environment:
       # Use the system Chromium baked into the image (set here so it can't be
@@ -13,8 +20,7 @@ services:
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     env_file:
       # Loads server/.env into the container (EMAIL_PROVIDER, keys, etc.).
-      # Simple form so it works on every Compose version. Create it first:
-      # copy server/.env.example to server/.env.
+      # Create it first: copy server/.env.example to server/.env.
       - ./server/.env
     volumes:
       # Persists the WhatsApp login + local store so you don't rescan the QR
@@ -25,17 +31,24 @@ services:
   # ── Frontend: the React/TanStack app (dev server) ─────────────────────
   web:
     build: .
+    container_name: whatsplan-web
     ports:
-      - "8080:8080"
+      # Host 8090 → container 8080. NOTE: 8080/3000/5000 are already taken on
+      # this VM (phantasm_webserver, nextjs-app, serenitycare-backend), so the
+      # frontend is published on 8090 instead.
+      - "8090:8080"
     environment:
-      # The browser runs on YOUR machine, so it reaches the API via the
-      # published host port — localhost, not the docker service name.
-      - VITE_API_URL=http://localhost:4000
+      # The browser must reach the API at a URL IT can resolve. For local-on-VM
+      # access that's the host port; when serving over a tunnel, set VITE_API_URL
+      # in a .env beside this file (or export it) to your API tunnel URL, e.g.
+      #   VITE_API_URL=https://your-api.trycloudflare.com
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
       - api
+    restart: unless-stopped
 
 volumes:
   wa-data:

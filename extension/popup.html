@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsPlan</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">W</span>
+      <span class="title">WhatsPlan</span>
+    </div>
+    <div class="actions">
+      <span id="status-dot" class="dot offline" title="Backend status"></span>
+      <button id="refresh-btn" class="icon-btn" title="Refresh">⟳</button>
+      <button id="settings-btn" class="icon-btn" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- Settings panel (hidden until opened or when no URL set) -->
+  <section id="settings" class="settings hidden">
+    <label>
+      Backend URL (the API tunnel)
+      <input id="api-url" type="text" placeholder="https://your-api.trycloudflare.com" />
+    </label>
+    <label>
+      Website URL (full app tunnel)
+      <input id="site-url" type="text" placeholder="https://your-site.trycloudflare.com" />
+    </label>
+    <div class="settings-actions">
+      <button id="save-btn" class="primary">Save</button>
+      <span id="save-hint" class="hint"></span>
+    </div>
+  </section>
+
+  <!-- Main content -->
+  <main id="content">
+    <div id="empty" class="empty hidden">
+      <p id="empty-msg">Set your backend URL in settings to load your planner.</p>
+    </div>
+
+    <div id="planner">
+      <details open class="group" data-col="meetings">
+        <summary><span class="g-icon">📅</span> Meetings <span class="count" id="count-meetings">0</span></summary>
+        <ul id="list-meetings" class="list"></ul>
+      </details>
+
+      <details open class="group" data-col="tasks">
+        <summary><span class="g-icon">✅</span> Tasks <span class="count" id="count-tasks">0</span></summary>
+        <ul id="list-tasks" class="list"></ul>
+      </details>
+
+      <details open class="group" data-col="announcements">
+        <summary><span class="g-icon">📢</span> Announcements <span class="count" id="count-announcements">0</span></summary>
+        <ul id="list-announcements" class="list"></ul>
+      </details>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <button id="open-app" class="open-app">Open full app ↗</button>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
