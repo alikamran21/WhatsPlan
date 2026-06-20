@@ -65,6 +65,11 @@ export class MemoryStore {
     }
   }
 
+  /** Names of every collection currently in the store (incl. per-session ones). */
+  listCollections() {
+    return Object.keys(this.data);
+  }
+
   async list(col, { where = [], orderBy, dir = "desc", limit } = {}) {
     let rows = Object.values(this.data[col] || {});
     for (const [field, op, val] of where) {

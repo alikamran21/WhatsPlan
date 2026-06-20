@@ -22,11 +22,17 @@ export function startRetention(store, onPurge) {
   const sweep = async () => {
     try {
       const cutoff = Date.now() - hours * HOUR;
-      const stale = await store.list("messages", { where: [["timestamp", "<", cutoff]] });
+      // Messages live in per-session collections ("<sid>::messages"); sweep them all.
+      const cols = (store.listCollections?.() || ["messages"]).filter(
+        (c) => c === "messages" || c.endsWith("::messages"),
+      );
       let n = 0;
-      for (const m of stale) {
-        await store.delete("messages", m.id);
-        n++;
+      for (const col of cols) {
+        const stale = await store.list(col, { where: [["timestamp", "<", cutoff]] });
+        for (const m of stale) {
+          await store.delete(col, m.id);
+          n++;
+        }
       }
       if (n) {
         console.log(`[retention] purged ${n} chat message(s) older than ${hours}h`);

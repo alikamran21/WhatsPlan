@@ -18,9 +18,10 @@ const AUTH_PATH = path.join(__dirname, "..", "..", "data", "wwebjs_auth");
  *   "status" (state), "qr" (dataUrl), "message" (record), "item" ({type,item})
  */
 export class WhatsAppService extends EventEmitter {
-  constructor(store) {
+  constructor(store, clientId = "default") {
     super();
     this.store = store;
+    this.clientId = clientId; // one WhatsApp link per app session → isolated auth
     this.client = null;
     this.status = "disconnected"; // disconnected | initializing | qr | authenticated | ready
     this.qrDataUrl = null;
@@ -72,7 +73,8 @@ export class WhatsAppService extends EventEmitter {
         }
       }
     };
-    walk(AUTH_PATH);
+    // only this session's auth folder (LocalAuth stores it at session-<clientId>)
+    walk(path.join(AUTH_PATH, `session-${this.clientId}`));
   }
 
   async start() {
@@ -81,7 +83,7 @@ export class WhatsAppService extends EventEmitter {
     this._clearStaleLocks();
 
     this.client = new Client({
-      authStrategy: new LocalAuth({ dataPath: AUTH_PATH }),
+      authStrategy: new LocalAuth({ clientId: this.clientId, dataPath: AUTH_PATH }),
       puppeteer: {
         headless: true,
         // In Docker we use the system Chromium installed in the image.
@@ -155,6 +157,18 @@ export class WhatsAppService extends EventEmitter {
     this.qrDataUrl = null;
     this._setStatus("disconnected");
     return this.getState();
+  }
+
+  /**
+   * Free the headless browser WITHOUT unlinking (keeps LocalAuth on disk so the
+   * next start() re-authenticates silently). Used to evict idle sessions.
+   */
+  async shutdown() {
+    try { if (this.client) await this.client.destroy(); }
+    catch (e) { console.warn("[wa] shutdown error:", e.message); }
+    this.client = null;
+    this.qrDataUrl = null;
+    this._setStatus("disconnected");
   }
 
   _watching(chat) {

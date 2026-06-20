@@ -11,6 +11,28 @@ export const API_URL =
   ((import.meta as any)?.env?.VITE_API_URL as string | undefined) ||
   "http://localhost:4000";
 
+/**
+ * Per-browser session id. Isolates each user's WhatsApp + data on the backend:
+ * the same browser keeps its id across reloads (so the device link persists),
+ * but a different PC/browser gets a different id → its own separate WhatsApp.
+ * Sent as the `X-WP-Session` header on REST and in the Socket.IO handshake.
+ */
+export function getSid(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    let v = localStorage.getItem("wp_sid");
+    if (!v || v.length < 12) {
+      const c: any = (globalThis as any).crypto;
+      const rnd = c && typeof c.randomUUID === "function"
+        ? c.randomUUID().replace(/-/g, "")
+        : (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
+      v = rnd.slice(0, 40);
+      localStorage.setItem("wp_sid", v);
+    }
+    return v;
+  } catch { return ""; }
+}
+
 /* ---- Types (loose, mirror the server data shapes) ---- */
 export type SessionState = {
   status: "disconnected" | "initializing" | "qr" | "authenticated" | "ready";
@@ -32,15 +54,15 @@ export type Announcement = { id: string; chatId: string; chatName: string; autho
 let socket: Socket | null = null;
 export function getSocket(): Socket | null {
   if (typeof window === "undefined") return null;
-  if (!socket) socket = io(API_URL, { transports: ["websocket", "polling"] });
+  if (!socket) socket = io(API_URL, { transports: ["websocket", "polling"], auth: { sid: getSid() } });
   return socket;
 }
 
 /* ---- REST helper ---- */
 async function http(path: string, opts: RequestInit = {}) {
   const res = await fetch(`${API_URL}/api${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...opts,
+    headers: { "Content-Type": "application/json", "X-WP-Session": getSid(), ...(opts.headers || {}) },
   });
   if (!res.ok) {
     // Surface the server's JSON `{ error, code }` so callers can show a real

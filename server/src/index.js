@@ -4,7 +4,7 @@ import cors from "cors";
 import { Server } from "socket.io";
 import { config } from "./config.js";
 import { createStore } from "./store/index.js";
-import { WhatsAppService } from "./whatsapp/client.js";
+import { createSessionManager } from "./sessions.js";
 import { registerRoutes } from "./routes.js";
 import { startRetention } from "./retention.js";
 
@@ -19,32 +19,34 @@ app.use(cors({ origin: config.corsOrigin }));
 app.use(express.json());
 
 const store = await createStore();
-const wa = new WhatsAppService(store);
-
-app.get("/health", (req, res) => res.json({ ok: true, ...wa.getState() }));
-registerRoutes(app, store, wa);
-
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: config.corsOrigin } });
 
+// Multi-tenant: each browser's session id → its own WhatsApp client + data.
+const sessions = createSessionManager(store, io);
+
+app.get("/health", (req, res) => res.json({ ok: true, sessions: sessions.sessions.size }));
+registerRoutes(app, sessions);
+
 io.on("connection", (socket) => {
-  // Send current state to a freshly-connected client.
-  socket.emit("session", wa.getState());
+  const sid = socket.handshake.auth?.sid || socket.handshake.query?.sid;
+  const s = sessions.get(sid);
+  if (!s) {
+    // unknown/invalid session id — tell the client it's disconnected, don't leak anything
+    socket.emit("session", { status: "disconnected", qr: null, me: null, meName: null, readOnly: config.readOnly });
+    return;
+  }
+  socket.join(sid);                 // events for this session reach only its browser(s)
+  socket.emit("session", s.wa.getState());
 });
 
-// Forward WhatsApp service events to all connected clients.
-for (const event of ["status", "qr", "message", "item"]) {
-  wa.on(event, (payload) => io.emit(event, payload));
-}
-
-// Auto-delete raw chat messages after RETENTION_HOURS (default 24h).
-startRetention(store, (count) => io.emit("purged", { count }));
+// Auto-delete raw chat messages after RETENTION_HOURS — sweeps every session.
+startRetention(store, () => {});
 
 server.listen(config.port, () => {
-  console.log(`\nWhatsPlan backend → http://localhost:${config.port}`);
+  console.log(`\nWhatsPlan backend → http://localhost:${config.port}  (multi-tenant: one WhatsApp per browser session)`);
   console.log(`  Classifier: ${config.groq.enabled ? `Groq (${config.groq.model})` : "heuristic (no GROQ_API_KEY)"}`);
   console.log(`  Email:      ${config.email.enabled ? "Brevo" : "console / devEcho (no BREVO_API_KEY)"}`);
-  console.log(`  Storage:    local file (data/store.json)`);
-  console.log(`  Watching:   ${config.watchChats.length ? config.watchChats.join(", ") : (config.watchDms ? "all chats (groups + DMs)" : "all groups")}`);
-  console.log(`\nPOST /api/session/start to link a device, then scan the QR.\n`);
+  console.log(`  Storage:    local file (data/store.json), namespaced per session`);
+  console.log(`\nEach browser links its own device via POST /api/session/start (sends X-WP-Session).\n`);
 });
