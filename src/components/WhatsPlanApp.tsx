@@ -242,37 +242,14 @@ function useLocal(key, initial) {
 /* ====================================================================== */
 /* WPLogo — sharp speech-bubble + task grid, visible on all themes */
 function WPLogo({ size = 64 }) {
-  const dark = "#0a1f14";
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="WhatsPlan" shapeRendering="crispEdges">
-      {/* dark outer border */}
-      <rect x="6" y="6" width="88" height="88" rx="14" fill={dark} />
-      {/* flat solid green body */}
-      <rect x="11" y="11" width="78" height="78" rx="11" fill="#25d366" />
-      {/* top + bottom flat accent strips */}
-      <rect x="11" y="11" width="78" height="8" fill="#1aab52" />
-      <rect x="11" y="81" width="78" height="8" fill="#1aab52" />
-      {/* 2×2 grid of sharp white task tiles */}
-      <rect x="21" y="27" width="26" height="22" rx="0" fill="#fff" />
-      <rect x="53" y="27" width="26" height="22" rx="0" fill="#fff" />
-      <rect x="21" y="51" width="26" height="22" rx="0" fill="#fff" />
-      <rect x="53" y="51" width="26" height="22" rx="0" fill="#fff" />
-      {/* pixel checkmark — top-left tile */}
-      <rect x="27" y="38" width="4" height="4" fill={dark} />
-      <rect x="31" y="42" width="4" height="4" fill={dark} />
-      <rect x="35" y="38" width="4" height="4" fill={dark} />
-      <rect x="39" y="34" width="4" height="4" fill={dark} />
-      {/* pixel checkmark — bottom-right tile */}
-      <rect x="59" y="62" width="4" height="4" fill={dark} />
-      <rect x="63" y="66" width="4" height="4" fill={dark} />
-      <rect x="67" y="62" width="4" height="4" fill={dark} />
-      <rect x="71" y="58" width="4" height="4" fill={dark} />
-      {/* pixel task lines on the other two tiles */}
-      <rect x="57" y="34" width="18" height="4" fill={dark} opacity="0.45" />
-      <rect x="57" y="40" width="12" height="4" fill={dark} opacity="0.3" />
-      <rect x="25" y="58" width="18" height="4" fill={dark} opacity="0.45" />
-      <rect x="25" y="64" width="12" height="4" fill={dark} opacity="0.3" />
-    </svg>
+    <img
+      src="/logo.png"
+      width={size}
+      height={size}
+      alt="WhatsPlan"
+      style={{ borderRadius: Math.round(size * 0.2), display: "block", objectFit: "cover" }}
+    />
   );
 }
 

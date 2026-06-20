@@ -81,12 +81,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "WhatsPlan" },
       { name: "twitter:description", content: "Chat, plan, win the day." },
+      { property: "og:image", content: "https://whatsplan.social/logo.png" },
+      { name: "twitter:image", content: "https://whatsplan.social/logo.png" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "icon", type: "image/png", href: "/logo.png" },
+      { rel: "apple-touch-icon", href: "/logo.png" },
     ],
   }),
   shellComponent: RootShell,
