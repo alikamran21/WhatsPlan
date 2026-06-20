@@ -2506,7 +2506,7 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
     { id: "chats",         label: "Chats",         icon: MessageSquare },
     { id: "storage",       label: "Storage & data",icon: Database },
     { id: "shortcuts",     label: "Shortcuts",     icon: Keyboard },
-    { id: "pet",           label: "Pet companion", icon: Sparkles },
+    { id: "cat",           label: "Pixel Cat",     icon: Sparkles },
     { id: "density",       label: "Density",       icon: Zap },
     { id: "help",          label: "Help",          icon: HelpCircle },
   ];
@@ -2691,60 +2691,11 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
             </div>
           )}
 
-          {section === "pet" && (
+          {section === "cat" && (
             <div className={`${T.panel} p-5 space-y-3`}>
-              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🐱 Companion</div></div>
-              <ToggleRow T={T} label="Enable pet companion" hint="A floating buddy that grows as you complete tasks." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
-              {settings.petEnabled && (
-                <>
-                  <div className={`text-xs ${T.muted} mt-2`}>Choose your companion</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {Object.entries(PET_PRESETS).map(([k, p]) => {
-                      const on = (settings.petChoice || "cat") === k;
-                      return (
-                        <button key={k} onClick={() => set({ petChoice: k })}
-                          className={`${T.panelSoft} p-2 rounded-lg text-center transition ${on ? "ring-2 ring-[#25d366] scale-105" : ""}`}>
-                          <div className="text-2xl">{p.emoji}</div>
-                          <div className={`text-[11px] font-medium ${T.text} truncate`}>{p.name}</div>
-                          <div className="text-[9px] truncate" style={{ color: p.color }}>{p.env}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className={`text-[11px] ${T.muted}`}>{PET_PRESETS[settings.petChoice || "cat"]?.blurb}</div>
-
-                  <div className={`text-xs ${T.muted} mt-2`}>Aura glow color</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {AURA_COLORS.map((c) => (
-                      <button key={c} onClick={() => set({ petAura: c })}
-                        className={`w-7 h-7 rounded-full border transition ${settings.petAura === c ? "scale-125 border-white" : "border-black/10"}`}
-                        style={{ background: c, boxShadow: settings.petAura === c ? `0 0 10px ${c}` : "none" }} aria-label={`aura ${c}`} />
-                    ))}
-                  </div>
-
-                  <div className={`text-xs ${T.muted} mt-2`}>Position</div>
-                  <div className="flex gap-2">
-                    {["left","right"].map((s) => (
-                      <button key={s} onClick={() => set({ petSide: s })}
-                        className={`${settings.petSide === s ? T.chipActive : T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium capitalize`}>
-                        Bottom {s}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className={`${T.panelSoft} p-3 text-[11px] ${T.muted} mt-1`}>
-                    <b className={T.text}>How your pet grows:</b> complete tasks &amp; keep streaks to earn XP. Every <b>level × 100 XP</b> = a level up + a treat 🍪. Feed treats for instant XP. Double-click the pet for its companion panel; right-click for the menu.
-                  </div>
-                </>
-              )}
-
-              {/* ── 🐱 Pixel Cat (animated canvas companion) ── */}
-              <div style={{ borderTop: "2px solid currentColor", opacity: 0.2, margin: "12px 0" }} />
-              <div className={`text-xs font-bold ${T.text} mb-2`}>🐱 Pixel Cat Settings</div>
-
-              <ToggleRow T={T} label="Enable Pixel Cat" hint="Animated canvas cat that roams, reacts to you & chats." value={settings.pixelCatEnabled !== false} onChange={(v) => set({ pixelCatEnabled: v })} />
+              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🐱 Pixel Cat</div></div>
+              <ToggleRow T={T} label="Enable Pixel Cat" hint="Animated sprite cat that roams your screen, reacts to you & chats." value={settings.pixelCatEnabled !== false} onChange={(v) => set({ pixelCatEnabled: v })} />
               <ToggleRow T={T} label="Roaming (walks around)" value={settings.pixelCatRoaming !== false} onChange={(v) => set({ pixelCatRoaming: v })} />
-              <ToggleRow T={T} label="Cursor eye tracking" value={settings.pixelCatEyes !== false} onChange={(v) => set({ pixelCatEyes: v })} />
 
               <div className={`text-xs ${T.muted} mt-2`}>Chat theme</div>
               <div className="flex gap-2 flex-wrap">
@@ -2756,23 +2707,11 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
                 ))}
               </div>
 
-              <div className={`text-xs ${T.muted} mt-2`}>Cat size: {(settings.pixelCatSize || 1)}x {!settings.premium && (settings.pixelCatSize || 1) > 1.5 ? "🔒" : ""}</div>
-              <input type="range" min={1} max={settings.premium ? 4 : 1.5} step={0.5}
-                value={Math.min(settings.pixelCatSize || 1, settings.premium ? 4 : 1.5)}
+              <div className={`text-xs ${T.muted} mt-2`}>Cat size: {(settings.pixelCatSize || 1)}x</div>
+              <input type="range" min={1} max={3} step={0.5}
+                value={Math.min(settings.pixelCatSize || 1, 3)}
                 onChange={(e) => set({ pixelCatSize: Number(e.target.value) })}
                 className="w-full" style={{ accentColor: "#25d366" }} />
-              {!settings.premium && <div className={`text-[10px] ${T.muted}`}>🔒 up to 4x (XL) with Premium</div>}
-
-              <ToggleRow T={T} label="Premium (demo)" hint="Unlocks AI chat, XL size & smart task hints." value={!!settings.premium} onChange={(v) => set({ premium: v })} />
-              <ToggleRow T={T} label="AI Chat (Premium) 🔒" hint="Claude-powered cat replies." value={!!settings.pixelCatAI} onChange={(v) => set({ pixelCatAI: settings.premium ? v : false })} />
-              {settings.pixelCatAI && settings.premium && (
-                <div>
-                  <div className={`text-xs ${T.muted} mt-1`}>Anthropic API Key</div>
-                  <input type="password" placeholder="sk-ant-..." value={settings.pixelCatApiKey || ""}
-                    onChange={(e) => set({ pixelCatApiKey: e.target.value })}
-                    className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
-                </div>
-              )}
 
               <button onClick={() => window.dispatchEvent(new CustomEvent("pixelcat:trigger", { detail: { state: "cheering", ms: 3000 } }))}
                 className={`${T.btn} w-full rounded-lg py-2 text-sm font-medium mt-1`}>🐱 Test Cat</button>
@@ -2815,289 +2754,9 @@ const DEFAULT_SETTINGS = {
   notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
   readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
   wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
-  petEnabled: false, petChoice: "cat", petAura: "#25d366", petSide: "right",
   compact: false,
-  premium: false,
-  pixelCatEnabled: true, pixelCatRoaming: true, pixelCatEyes: true,
-  pixelCatTheme: "green_clay", pixelCatSize: 1, pixelCatAI: false, pixelCatApiKey: "",
+  pixelCatEnabled: true, pixelCatRoaming: true, pixelCatTheme: "green_clay", pixelCatSize: 1,
 };
-
-const PET_PRESETS = {
-  cat: { name: "Mochi", emoji: "🐱", blurb: "Chubby green pixel cat. Reminds you of deadlines, cheers your wins, and (Premium) auto-plans your day.", mood: "calm", env: "cozy desk", color: "#25d366" },
-};
-
-const PET_MESSAGES = {
-  idle: ["I believe in you! 💚", "Stay hydrated! 💧", "You're doing amazing ✨", "One task at a time 🌱"],
-  task: ["Yes!! You crushed it!! 🎉", "Let's gooo!! 🔥", "Task destroyed! 💪", "You're unstoppable! ⚡"],
-  streak3: ["3 days in a row! You're building a habit! 🔥", "3-day streak! I got you a snack 🍪"],
-  streak7: ["ONE WEEK STREAK!! 🏆 This calls for a celebration!", "7 days!! I unlocked something special!! 🎊"],
-  streak14: ["2 WEEKS!! You're a legend!! 🌟 I evolved!", "14-day streak! We're unstoppable together! 💫"],
-  streak30: ["30 DAYS!!! 🎆 I unlocked a RARE outfit!", "A WHOLE MONTH!! You are extraordinary!! 👑"],
-  stress: ["Hey, take a breath with me... 🫁 In... out...", "You've got this. Want a 2-min break? 🌿"],
-};
-
-const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff", "#fbbf24", "#3b82f6"];
-
-/* The companion's image — the pixel cat (public/pets/cat.png). */
-const CAT_IMG = "/pets/cat.png";
-
-function WebPet({ choice, aura, side, streak = 0, tasksToday = 0, boards = [] }) {
-  const preset = PET_PRESETS[choice] || PET_PRESETS.cat;
-
-  /* ── ALL HOOKS FIRST (never return before these) ── */
-  const [pos, setPos] = useState(() => {
-    try { const v = JSON.parse(localStorage.getItem("wp_pet_pos") || "null"); if (v) return v; } catch {}
-    return { side: side || "right", y: typeof window !== "undefined" ? window.innerHeight - 185 : 400 };
-  });
-  const [bubble, setBubble] = useState(null);
-  const [collapsed, setCollapsed] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [celebrating, setCelebrating] = useState(false);
-  const [wiggle, setWiggle] = useState(false);
-  const [showPanel, setShowPanel] = useState(false);
-  const [catReady, setCatReady] = useState(false);
-  const [petXP, setPetXP] = useLocal("wp_pet_xp", 0);
-  const [petLevel, setPetLevel] = useLocal("wp_pet_level", 1);
-  const [treats, setTreats] = useLocal("wp_pet_treats", 3);
-  const [premium, setPremium] = useLocal("wp_premium", false);
-  const dragRef = useRef({ active: false, dy: 0 });
-  const deadlinesRef = useRef([]);
-
-  // detect the cat image
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const img = new window.Image();
-    img.onload = () => setCatReady(true);
-    img.onerror = () => setCatReady(false);
-    img.src = CAT_IMG;
-  }, []);
-
-  // urgent deadlines pulled from the user's boards (overdue / today / soon)
-  const deadlines = useMemo(() => {
-    const items = (boards || []).flatMap((b) => { try { return boardItems(b); } catch { return []; } });
-    return items
-      .filter((it) => !it.done && it.due)
-      .map((it) => ({ ...it, meta: dueMeta(it.due, it.done) }))
-      .filter((it) => it.meta && /Overdue|Today|soon/.test(it.meta.label))
-      .sort((a, b) => new Date(a.due + "T00:00:00") - new Date(b.due + "T00:00:00"));
-  }, [boards]);
-  useEffect(() => { deadlinesRef.current = deadlines; }, [deadlines]);
-
-  // idle message timer + celebrate handler + keyboard
-  useEffect(() => {
-    const idle = setInterval(() => {
-      const dl = deadlinesRef.current;
-      if (dl.length) {
-        const d = dl[Math.floor(Math.random() * Math.min(3, dl.length))];
-        setBubble(`⏰ "${d.title}" — ${d.meta.label}`);
-      } else {
-        setBubble(PET_MESSAGES.idle[Math.floor(Math.random() * PET_MESSAGES.idle.length)]);
-      }
-      setTimeout(() => setBubble(null), 4000);
-    }, 45000);
-    function onCelebrate(e) {
-      const sc = e?.detail?.streakCount ?? 0;
-      let arr = PET_MESSAGES.task;
-      if (sc >= 30) arr = PET_MESSAGES.streak30;
-      else if (sc >= 14) arr = PET_MESSAGES.streak14;
-      else if (sc >= 7) arr = PET_MESSAGES.streak7;
-      else if (sc >= 3) arr = PET_MESSAGES.streak3;
-      setBubble(arr[Math.floor(Math.random() * arr.length)]);
-      setCelebrating(true);
-      setPetXP((x) => x + 25);
-      setTimeout(() => setCelebrating(false), 700);
-      setTimeout(() => setBubble(null), 4500);
-    }
-    function onKey(e) { if (e.key === "Escape") { setBubble(null); setShowPanel(false); setMenuOpen(false); } }
-    window.addEventListener("webpet:celebrate", onCelebrate);
-    window.addEventListener("keydown", onKey);
-    return () => { clearInterval(idle); window.removeEventListener("webpet:celebrate", onCelebrate); window.removeEventListener("keydown", onKey); };
-  }, [setPetXP]);
-
-  // drag to reposition (snaps to nearest side, persists)
-  useEffect(() => {
-    function onMove(e) {
-      if (!dragRef.current.active) return;
-      const cy = e.touches ? e.touches[0].clientY : e.clientY;
-      const cx = e.touches ? e.touches[0].clientX : e.clientX;
-      setPos((p) => ({ ...p, y: Math.max(20, Math.min(window.innerHeight - 150, cy - dragRef.current.dy)), _x: cx }));
-    }
-    function onUp() {
-      if (!dragRef.current.active) return;
-      dragRef.current.active = false;
-      setPos((p) => {
-        const s = (p._x ?? 0) < window.innerWidth / 2 ? "left" : "right";
-        const next = { side: s, y: p.y };
-        try { localStorage.setItem("wp_pet_pos", JSON.stringify(next)); } catch {}
-        return next;
-      });
-    }
-    window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchmove", onMove); window.addEventListener("touchend", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove); window.removeEventListener("touchend", onUp);
-    };
-  }, []);
-
-  // level up when XP crosses the threshold (earns a treat)
-  useEffect(() => {
-    if (petXP >= petLevel * 100) { setPetLevel((l) => l + 1); setTreats((t) => t + 1); }
-  }, [petXP, petLevel, setPetLevel, setTreats]);
-
-  // greet with the most urgent deadline shortly after load
-  useEffect(() => {
-    const urgent = deadlines.find((d) => /Overdue|Today/.test(d.meta.label));
-    if (!urgent) return;
-    const t = setTimeout(() => {
-      setBubble(`⏰ Don't forget: "${urgent.title}" — ${urgent.meta.label}`);
-      setTimeout(() => setBubble(null), 5000);
-    }, 2500);
-    return () => clearTimeout(t);
-  }, [deadlines]);
-
-  /* ── derived (non-hook) ── */
-  const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; } })();
-  const isSnoozed = snoozeUntil > Date.now();
-  const xpForNext = petLevel * 100;
-  const xpPct = Math.min(100, Math.round(((petXP % xpForNext) / xpForNext) * 100));
-  const mood = tasksToday >= 5 ? "excited" : tasksToday >= 2 ? "happy" : streak >= 7 ? "proud" : "calm";
-  const MOOD = { excited: ["🤩", "Excited"], happy: ["😊", "Happy"], proud: ["🥳", "Proud"], calm: ["😌", "Calm"] };
-  const anchor = pos.side === "right" ? { right: 20 } : { left: 20 };
-
-  function startDrag(e) {
-    const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    dragRef.current = { active: true, dy: cy - pos.y };
-  }
-  function sayIdle() {
-    setBubble(PET_MESSAGES.idle[Math.floor(Math.random() * PET_MESSAGES.idle.length)]);
-    setTimeout(() => setBubble(null), 3500);
-  }
-  function feed() {
-    if (treats <= 0) return;
-    setTreats((t) => t - 1);
-    setPetXP((x) => x + 25);
-    setBubble("Yummy! +25 XP 🍪");
-    setCelebrating(true);
-    setTimeout(() => setCelebrating(false), 700);
-    setTimeout(() => setBubble(null), 3000);
-    setMenuOpen(false);
-  }
-  // Premium: turn the user's deadlines into a quick prioritised plan.
-  function automate() {
-    setMenuOpen(false);
-    if (!premium) {
-      setShowPanel(true);
-      setBubble("✨ Auto-planning is a Premium power — unlock it in my panel!");
-      setTimeout(() => setBubble(null), 4500);
-      return;
-    }
-    if (!deadlines.length) { setBubble("You're all caught up — nothing urgent to plan! 🌿"); setTimeout(() => setBubble(null), 3500); return; }
-    const plan = deadlines.slice(0, 3).map((d, i) => `${i + 1}. ${d.title} (${d.meta.label})`).join("   ");
-    setBubble(`📋 Your plan: ${plan}`);
-    setCelebrating(true);
-    setTimeout(() => setCelebrating(false), 600);
-    setTimeout(() => setBubble(null), 9000);
-  }
-
-  /* ── early returns (after ALL hooks) ── */
-  if (isSnoozed) return null;
-  if (collapsed) {
-    return (
-      <button onClick={() => setCollapsed(false)}
-        style={{ ...anchor, top: pos.y, position: "fixed", zIndex: 9999 }}
-        className="w-9 h-9 rounded-full bg-white shadow-lg border border-black/10 grid place-items-center text-base">
-        🐾
-      </button>
-    );
-  }
-
-  const petAnimate = celebrating ? { scale: [1, 1.4, 0.85, 1.2, 1], rotate: [-8, 8, -4, 0] }
-    : wiggle ? { scale: [1, 1.15, 1] } : { scale: 1 };
-  const petTransition = { duration: celebrating ? 0.5 : 0.3 };
-
-  return (
-    <div style={{ ...anchor, top: pos.y, position: "fixed", zIndex: 9999 }} className="select-none">
-      <AnimatePresence>
-        {bubble && (
-          <motion.div key={bubble}
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
-            className="mb-2 max-w-[220px] rounded-xl bg-white text-[#1E293B] text-xs px-3 py-2 shadow-lg border border-black/10 cursor-pointer"
-            onClick={() => setBubble(null)}>{bubble}</motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.div
-        role="img" aria-label={`${preset.name}, your companion`}
-        onMouseDown={startDrag} onTouchStart={startDrag}
-        onClick={() => { setWiggle(true); sayIdle(); setTimeout(() => setWiggle(false), 340); }}
-        onDoubleClick={() => setShowPanel((v) => !v)}
-        onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o) => !o); }}
-        animate={petAnimate} transition={petTransition}
-        className="cursor-grab active:cursor-grabbing grid place-items-center"
-        style={{ width: 150, height: 150, filter: `drop-shadow(0 0 14px ${aura})` }}
-      >
-        {catReady
-          ? <img src={CAT_IMG} width={142} height={142} draggable={false} alt="pet" style={{ objectFit: "contain" }} />
-          : <span style={{ fontSize: 84, lineHeight: 1 }}>{preset.emoji}</span>}
-      </motion.div>
-
-      {/* level badge + XP bar */}
-      <div className="mt-1 flex items-center gap-1.5" style={{ width: 150 }}>
-        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: preset.color }}>Lv {petLevel}</span>
-        <div className="flex-1 h-1.5 rounded-full bg-black/20 overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: `${xpPct}%`, background: "#25d366" }} />
-        </div>
-      </div>
-
-      {menuOpen && (
-        <div className={`absolute ${pos.side === "right" ? "right-0" : "left-0"} mt-2 w-52 rounded-lg bg-white border border-black/10 shadow-xl text-sm overflow-hidden z-10`}>
-          <button onClick={feed} disabled={treats <= 0} className="w-full text-left px-3 py-2 hover:bg-black/5 disabled:opacity-40">🍪 Feed treat ({treats})</button>
-          <button onClick={() => { setMenuOpen(false); sayIdle(); }} className="w-full text-left px-3 py-2 hover:bg-black/5">💬 Pet {preset.name}</button>
-          <button onClick={() => { setMenuOpen(false); setShowPanel(true); }} className="w-full text-left px-3 py-2 hover:bg-black/5">🏡 Open companion panel</button>
-          <button onClick={automate} className="w-full text-left px-3 py-2 hover:bg-black/5">✨ Automate my day {premium ? "" : "🔒"}</button>
-          <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30 * 60 * 1000)); } catch {} window.location.reload(); }} className="w-full text-left px-3 py-2 hover:bg-black/5">⏸ Snooze 30 min</button>
-          <button onClick={() => { setMenuOpen(false); setCollapsed(true); }} className="w-full text-left px-3 py-2 hover:bg-black/5">🙈 Hide</button>
-        </div>
-      )}
-
-      {showPanel && (
-        <div className={`absolute bottom-full mb-2 ${pos.side === "right" ? "right-0" : "left-0"} w-64 rounded-2xl bg-white shadow-2xl border border-black/10 overflow-hidden z-10`}>
-          <div className="p-4 text-white relative" style={{ background: `linear-gradient(135deg, ${aura}, ${preset.color})` }}>
-            <button onClick={() => setShowPanel(false)} className="absolute top-2 right-2 text-white/80 hover:text-white"><X className="w-4 h-4" /></button>
-            <div className="flex items-center gap-3">
-              <span style={{ fontSize: 40, lineHeight: 1 }}>{preset.emoji}</span>
-              <div className="min-w-0">
-                <div className="font-bold">{preset.name}</div>
-                <div className="text-[11px] opacity-90">{preset.blurb}</div>
-                <div className="text-[10px] opacity-80 mt-0.5">🏡 {preset.env}</div>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 space-y-2 text-[#111b21]">
-            <div className="flex items-center justify-between text-xs"><span className="font-semibold">Level {petLevel}</span><span className="text-black/50">{petXP % xpForNext}/{xpForNext} XP</span></div>
-            <div className="h-2 rounded-full bg-black/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${xpPct}%`, background: "#25d366" }} /></div>
-            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Treats</div><div className="font-bold">🍪 {treats}</div></div>
-              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Mood</div><div className="font-bold">{MOOD[mood][0]} {MOOD[mood][1]}</div></div>
-              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Streak</div><div className="font-bold">🔥 {streak}</div></div>
-              <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Today</div><div className="font-bold">✅ {tasksToday}</div></div>
-            </div>
-            <button onClick={feed} disabled={treats <= 0} className="w-full mt-1 py-2 rounded-lg bg-[#25d366] text-white text-sm font-semibold disabled:opacity-40">🍪 Feed treat (+25 XP)</button>
-            {premium ? (
-              <div className="mt-1 text-[11px] text-center font-semibold" style={{ color: "#16a34a" }}>✨ Premium active — right-click me → Automate my day</div>
-            ) : (
-              <button onClick={() => { setPremium(true); setShowPanel(false); setBubble("✨ Premium unlocked! Right-click me → Automate my day."); setTimeout(() => setBubble(null), 4500); }}
-                className="w-full mt-1 py-2 rounded-lg text-white text-sm font-semibold" style={{ background: "linear-gradient(135deg,#f59e0b,#ef4444)" }}>
-                ✨ Go Premium — auto-plan deadlines
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
   const T = THEMES[themeKey] || THEMES.default;
@@ -3203,17 +2862,13 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
         })}
       </nav>
 
-      {/* Hatchling sprite pet floats over everything */}
-      {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} streak={gam.streak?.count || 0} tasksToday={gam.completedToday || 0} boards={boards} />}
+      {/* Animated pixel-cat companion (sprite sheet) floats over everything */}
       {settings.pixelCatEnabled !== false && (
         <PixelCat
           theme={settings.pixelCatTheme || "green_clay"}
           roaming={settings.pixelCatRoaming !== false}
           scale={settings.pixelCatSize || 1}
-          isPremium={settings.premium || false}
-          apiKey={settings.pixelCatApiKey || ""}
-          aiEnabled={!!(settings.pixelCatAI && settings.premium)}
-          onTaskComplete={() => window.dispatchEvent(new CustomEvent("webpet:celebrate"))}
+          onTaskComplete={() => window.dispatchEvent(new CustomEvent("pixelcat:celebrate"))}
         />
       )}
     </div>

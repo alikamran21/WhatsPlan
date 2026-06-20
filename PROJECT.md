@@ -6,7 +6,7 @@
 WhatsPlan turns fast-moving WhatsApp group chats into organized, actionable
 plans: it reads selected chats, an AI classifies messages into **meetings /
 tasks / announcements**, and you organize them on **boards** (Kanban,
-Calendar, etc.) — with a gamified **pet companion** to keep you motivated.
+Calendar, etc.) — with gamified streaks and badges to keep you motivated.
 
 ---
 
@@ -16,7 +16,7 @@ We explored **two** product shapes during development:
 
 | Direction | Status | Why |
 | --- | --- | --- |
-| **A. Web app** (React + backend, stores data, connects WhatsApp via QR) | ✅ **THIS IS THE PRODUCT** | Chosen by the user. Full boards/pet/premium/DB features. |
+| **A. Web app** (React + backend, stores data, connects WhatsApp via QR) | ✅ **THIS IS THE PRODUCT** | Chosen by the user. Full boards/gamification/DB features. |
 | B. Privacy Chrome extension (on-device, no storage, read-only) | 🗑️ Removed | Was built (`extension/` + `otp-service/`) then deleted during cleanup. Recoverable from git commit `c58abc4` if ever needed. |
 
 **The web app wins.** The extension was removed during cleanup. The
@@ -58,17 +58,12 @@ WhatsPlan/
 ├─ DOCKER.md                   ← docker run guide + API key/DB/WhatsApp explainer
 ├─ docker-compose.yml          ← web + api services
 ├─ firebase.json, firestore.rules
-├─ docs/PET_WITH_CODEX.md      ← how to make a pet sprite with Codex
 │
 ├─ src/                        ← FRONTEND (web app — the product)
 │  ├─ components/WhatsPlanApp.tsx   ← ~3000-line single-file app (everything UI)
 │  ├─ lib/api.ts                    ← backend client + React hooks (useSession, useChats,
 │  │                                  useMessages, usePlanner, useBoards, useSyncedDoc)
 │  └─ routes/, router.tsx, ...
-│
-├─ public/pets/
-│  ├─ fox.png                  ← the active pet image (your fox)
-│  └─ hatchling/atlas.json     ← sprite-atlas layout (optional animated pet)
 │
 ├─ server/                     ← BACKEND
 │  ├─ src/index.js             ← Express + Socket.IO bootstrap + crash guards
@@ -81,10 +76,6 @@ WhatsPlan/
 │  ├─ .env  /  .env.example
 │  ├─ serviceAccount.json      ← Firebase admin key (GITIGNORED — see security)
 │  └─ Dockerfile
-│
-└─ hatch-pet/scripts/          ← (optional) Python pipeline to generate an animated
-                                  pet sprite atlas — unused by the app; kept for the
-                                  Codex animated-pet path in docs/PET_WITH_CODEX.md
 ```
 
 ---
@@ -106,7 +97,7 @@ WhatsPlan/
 - **Planner** — Meetings / Tasks / Announcements, live-updating from the classifier; edit/complete/pin/delete.
 - **Boards** — Kanban/Table/Roadmap/Calendar/Checklist/Notes; persist to backend (offline-safe).
 - **Gamification** — badges/streak/XP, persisted to backend.
-- **Pet companion** — see §6.
+- **Pixel Cat companion** — `PixelCat` (`src/components/PixelCat.jsx`): an animated sprite cat rendered from `public/cat-spritesheet.png` (12 actions × 24 frames). Roams, reacts to typing/scroll/idle, chat popup + reminders. Sheet is generated from the source art by `virtual_pet_cat/process_spritesheet.py`. Toggle/configure in Settings → Pixel Cat.
 
 ### Teammate's 9-section UI pass (all ✅)
 1. **Pixel-art logo** (`crispEdges`, flat fills, rect checkmarks).
@@ -116,11 +107,10 @@ WhatsPlan/
 5. **Calendar fixes** — z-50, spring, Cancel, disabled-Save, endDate/assignee/priority, color-picker fix.
 6. **Share modal** — 3 tabs (🔗 Link / 💬 WhatsApp / QR).
 7. **Settings account** — Connect-WhatsApp QR panel + Frontend→Backend connection map.
-8. **Premium pet system** — 8 pets (fox default), XP/levels/treats, moods, companion panel, messages, right-click menu.
-9. **AppShell** — passes `streak`/`tasksToday` to pet; `useGamification` returns `completedToday`.
+8. **AppShell** — `useGamification` tracks streak/XP and returns `completedToday`.
 
 ### Infra
-- Docker Compose (web + api), Firestore rules (deny-all; admin bypasses), `docs/PET_WITH_CODEX.md`.
+- Docker Compose (web + api), Firestore rules (deny-all; admin bypasses).
 
 ---
 
@@ -151,18 +141,7 @@ bun install && bun dev
 
 ---
 
-## 6. The pet companion
-
-- Component: `WebPet` in `WhatsPlanApp.tsx`. Floating, draggable, snaps to a side.
-- 8 pets: **fox (default)**, cat, dog, bunny, bear, frog, capybara, ghost. Fox renders `public/pets/fox.png`; others use emoji.
-- XP / levels / treats (localStorage keys `wp_pet_xp`, `wp_pet_level`, `wp_pet_treats`). Level up at `level × 100` XP → earns a treat.
-- Interactions: click = idle message + wiggle, double-click = companion panel, right-click = menu (feed/pet/panel/snooze/hide).
-- Moods from activity; celebration messages tiered by streak (3/7/14/30).
-- For an **animated sprite** pet instead of a still image, see `docs/PET_WITH_CODEX.md` + `hatch-pet/scripts/`.
-
----
-
-## 7. Known issues / caveats
+## 6. Known issues / caveats
 
 - **Not yet run end-to-end after the latest UI pass.** All recent changes are syntax/parse-verified and bracket-balanced, but there's no `bun`/build in the authoring environment. Verify visually on `bun dev` / `docker compose up`.
 - **whatsapp-web.js is unofficial** — it can break when WhatsApp updates its web client, and automation risks number flags/bans. Keep `READ_ONLY=true`; never auto-send/bulk-send. Consider a secondary number for testing.
@@ -172,7 +151,7 @@ bun install && bun dev
 
 ---
 
-## 8. 🔴 SECURITY — action required
+## 7. 🔴 SECURITY — action required
 
 - The Firebase **service-account private key** (`server/serviceAccount.json`) was pasted into chat during setup, so it must be treated as **compromised**. **Rotate it:** Firebase Console → Project settings → Service accounts → delete the old key → generate a new one → replace the file (same path). It is gitignored, so it won't be committed.
 - The Firebase **web** `apiKey` is public by design (not a secret) — fine to expose.
@@ -180,28 +159,25 @@ bun install && bun dev
 
 ---
 
-## 9. What's LEFT / next steps
+## 8. What's LEFT / next steps
 
 **Backend wiring (frontend is ready for it):**
 - Re-enable + verify Firestore (create the DB, flip env).
 - Real contact resolution for assignee/@mentions (WhatsApp contacts → board).
 - Board sharing endpoints: `POST /api/boards/:id/publish`, `POST /api/whatsapp/send`.
-- Dispatch `webpet:celebrate` on real task completion so the pet earns XP from actual work (currently XP mainly via feeding).
 
 **Product polish:**
 - Calendar: drag events, week view.
 - Board: drag-and-drop cards between columns.
-- Pet: environments/outfits/accessories (the broader Finch-style system, only partially built).
 - Multi-user / real accounts (currently single-user = one linked WhatsApp).
 
 **Cleanup (done 2026-06-19):**
 - ✅ Removed dead code (`FoxPlaceholder`, `petMotion`, `HATCH_MANIFEST`, `boardToText`, `WALogo`).
 - ✅ Removed the shelved `extension/` + `otp-service/` (recoverable from git commit `c58abc4`).
-- Optional: `hatch-pet/` (Python sprite pipeline) is unused by the app — delete it too if you don't want the animated-pet path.
 
 ---
 
-## 10. Backend connection map (for whoever wires it)
+## 9. Backend connection map (for whoever wires it)
 
 | Feature | Endpoint | Where |
 | --- | --- | --- |

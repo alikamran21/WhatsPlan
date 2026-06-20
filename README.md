@@ -63,7 +63,7 @@ A chat is only read **after you opt it in** with the toggle — and turning that
 | 🗂️ **Planner** | Meetings, tasks, and announcements pulled from chats — editable, completable, pinnable. |
 | 📋 **Boards** | Kanban, Table, Roadmap, Calendar, Checklist, and Notes board types with drag-and-drop. |
 | 🎨 **8 themes** | All on WhatsApp's green palette — Classic, Dark, Neo-Brutalist, Claymorphism, Glassmorphism, Neon, Skeuomorphic, Paper & Ink. |
-| 🎮 **Gamification** | Streaks, badges, completion tracking, and a floating pet companion that levels up. |
+| 🎮 **Gamification** | Streaks, badges, completion tracking, and an animated pixel-cat companion that roams the screen and reacts to you. |
 | ⚡ **Realtime** | Socket.IO pushes new messages and sorted items to the UI instantly. |
 
 ---
