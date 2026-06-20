@@ -21,19 +21,20 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             set -e
-            APP_DIR="$HOME/Repo/WhatsPlan"
+            APP_DIR="$HOME/WhatsPlan"
 
-            # First run: clone the repo if it isn't on the VM yet (public, HTTPS).
+            # Clone on first run; otherwise sync the existing checkout.
             if [ ! -d "$APP_DIR/.git" ]; then
-              mkdir -p "$HOME/Repo"
-              sudo git clone https://github.com/alikamran21/WhatsPlan.git "$APP_DIR"
+              git clone https://github.com/alikamran21/WhatsPlan.git "$APP_DIR"
             fi
 
             cd "$APP_DIR"
 
-            # Force the VM to match origin/main exactly.
-            sudo git fetch --all
-            sudo git reset --hard origin/main
+            # Force the VM to match origin/main exactly. No sudo on git — the repo
+            # is owned by $USER, and sudo'd git would trip "dubious ownership".
+            git config --global --add safe.directory "$APP_DIR" || true
+            git fetch --all
+            git reset --hard origin/main
 
             # Rebuild + restart ONLY the whatsplan-* containers. Scoped to the
             # compose project "whatsplan" — your phantasm_* / nextjs-app stacks
