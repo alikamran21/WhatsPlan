@@ -2715,14 +2715,14 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
 
           {section === "pet" && (
             <div className={`${T.panel} p-5 space-y-3`}>
-              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🦊 Companion</div></div>
+              <div className="flex items-center gap-2 mb-1"><Sparkles className={`w-4 h-4 ${T.text}`} /><div className={`font-semibold ${T.text}`}>🐱 Companion</div></div>
               <ToggleRow T={T} label="Enable pet companion" hint="A floating buddy that grows as you complete tasks." value={settings.petEnabled} onChange={(v)=>set({ petEnabled: v })} />
               {settings.petEnabled && (
                 <>
                   <div className={`text-xs ${T.muted} mt-2`}>Choose your companion</div>
                   <div className="grid grid-cols-4 gap-2">
                     {Object.entries(PET_PRESETS).map(([k, p]) => {
-                      const on = (settings.petChoice || "fox") === k;
+                      const on = (settings.petChoice || "cat") === k;
                       return (
                         <button key={k} onClick={() => set({ petChoice: k })}
                           className={`${T.panelSoft} p-2 rounded-lg text-center transition ${on ? "ring-2 ring-[#25d366] scale-105" : ""}`}>
@@ -2733,7 +2733,7 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
                       );
                     })}
                   </div>
-                  <div className={`text-[11px] ${T.muted}`}>{PET_PRESETS[settings.petChoice || "fox"]?.blurb}</div>
+                  <div className={`text-[11px] ${T.muted}`}>{PET_PRESETS[settings.petChoice || "cat"]?.blurb}</div>
 
                   <div className={`text-xs ${T.muted} mt-2`}>Aura glow color</div>
                   <div className="flex gap-2 flex-wrap">
@@ -2798,19 +2798,12 @@ const DEFAULT_SETTINGS = {
   notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
   readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
   wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
-  petEnabled: true, petChoice: "fox", petAura: "#25d366", petSide: "right",
+  petEnabled: true, petChoice: "cat", petAura: "#25d366", petSide: "right",
   compact: false,
 };
 
 const PET_PRESETS = {
-  fox:      { name: "Foxy",    emoji: "🦊", blurb: "Sharp & loyal. Cheers every win.",            mood: "playful", env: "cozy den",     color: "#f97316" },
-  cat:      { name: "Mochi",   emoji: "🐱", blurb: "Calm & curious. Purrs when you finish tasks.", mood: "calm",    env: "cozy room",    color: "#f59e0b" },
-  dog:      { name: "Biscuit", emoji: "🐶", blurb: "Enthusiastic. Zooms when you hit streaks!",    mood: "excited", env: "garden",       color: "#84cc16" },
-  bunny:    { name: "Mochi",   emoji: "🐰", blurb: "Gentle & sweet. Does happy binkies for you.",  mood: "playful", env: "meadow",       color: "#ec4899" },
-  bear:     { name: "Coco",    emoji: "🐻", blurb: "Cuddly & steadfast. Warm hugs on hard days.",  mood: "calm",    env: "forest",       color: "#92400e" },
-  frog:     { name: "Ribbit",  emoji: "🐸", blurb: "Quirky & chill. Meditates on lily pads.",      mood: "calm",    env: "pond",         color: "#22c55e" },
-  capybara: { name: "Capy",    emoji: "🦫", blurb: "Ultra zen. Radiates good vibes always.",       mood: "calm",    env: "hot spring",   color: "#a78bfa" },
-  ghost:    { name: "Casper",  emoji: "👻", blurb: "Quietly cheerful. Floats near good focus.",    mood: "playful", env: "haunted cozy", color: "#94a3b8" },
+  cat: { name: "Mochi", emoji: "🐱", blurb: "Chubby green pixel cat. Reminds you of deadlines, cheers your wins, and (Premium) auto-plans your day.", mood: "calm", env: "cozy desk", color: "#25d366" },
 };
 
 const PET_MESSAGES = {
@@ -2825,11 +2818,11 @@ const PET_MESSAGES = {
 
 const AURA_COLORS = ["#25d366", "#00bcd4", "#a855f7", "#ec4899", "#f97316", "#ffffff", "#fbbf24", "#3b82f6"];
 
-/* The pet's image — your fox (public/pets/fox.png). */
-const FOX_IMG = "/pets/fox.png";
+/* The companion's image — the pixel cat (public/pets/cat.png). */
+const CAT_IMG = "/pets/cat.png";
 
-function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
-  const preset = PET_PRESETS[choice] || PET_PRESETS.fox;
+function WebPet({ choice, aura, side, streak = 0, tasksToday = 0, boards = [] }) {
+  const preset = PET_PRESETS[choice] || PET_PRESETS.cat;
 
   /* ── ALL HOOKS FIRST (never return before these) ── */
   const [pos, setPos] = useState(() => {
@@ -2842,26 +2835,45 @@ function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
   const [celebrating, setCelebrating] = useState(false);
   const [wiggle, setWiggle] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
-  const [foxReady, setFoxReady] = useState(false);
+  const [catReady, setCatReady] = useState(false);
   const [petXP, setPetXP] = useLocal("wp_pet_xp", 0);
   const [petLevel, setPetLevel] = useLocal("wp_pet_level", 1);
   const [treats, setTreats] = useLocal("wp_pet_treats", 3);
+  const [premium, setPremium] = useLocal("wp_premium", false);
   const dragRef = useRef({ active: false, dy: 0 });
+  const deadlinesRef = useRef([]);
 
-  // detect the fox image (only the fox companion uses it)
+  // detect the cat image
   useEffect(() => {
     if (typeof window === "undefined") return;
     const img = new window.Image();
-    img.onload = () => setFoxReady(true);
-    img.onerror = () => setFoxReady(false);
-    img.src = FOX_IMG;
+    img.onload = () => setCatReady(true);
+    img.onerror = () => setCatReady(false);
+    img.src = CAT_IMG;
   }, []);
+
+  // urgent deadlines pulled from the user's boards (overdue / today / soon)
+  const deadlines = useMemo(() => {
+    const items = (boards || []).flatMap((b) => { try { return boardItems(b); } catch { return []; } });
+    return items
+      .filter((it) => !it.done && it.due)
+      .map((it) => ({ ...it, meta: dueMeta(it.due, it.done) }))
+      .filter((it) => it.meta && /Overdue|Today|soon/.test(it.meta.label))
+      .sort((a, b) => new Date(a.due + "T00:00:00") - new Date(b.due + "T00:00:00"));
+  }, [boards]);
+  useEffect(() => { deadlinesRef.current = deadlines; }, [deadlines]);
 
   // idle message timer + celebrate handler + keyboard
   useEffect(() => {
     const idle = setInterval(() => {
-      setBubble(PET_MESSAGES.idle[Math.floor(Math.random() * PET_MESSAGES.idle.length)]);
-      setTimeout(() => setBubble(null), 3500);
+      const dl = deadlinesRef.current;
+      if (dl.length) {
+        const d = dl[Math.floor(Math.random() * Math.min(3, dl.length))];
+        setBubble(`⏰ "${d.title}" — ${d.meta.label}`);
+      } else {
+        setBubble(PET_MESSAGES.idle[Math.floor(Math.random() * PET_MESSAGES.idle.length)]);
+      }
+      setTimeout(() => setBubble(null), 4000);
     }, 45000);
     function onCelebrate(e) {
       const sc = e?.detail?.streakCount ?? 0;
@@ -2913,6 +2925,17 @@ function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
     if (petXP >= petLevel * 100) { setPetLevel((l) => l + 1); setTreats((t) => t + 1); }
   }, [petXP, petLevel, setPetLevel, setTreats]);
 
+  // greet with the most urgent deadline shortly after load
+  useEffect(() => {
+    const urgent = deadlines.find((d) => /Overdue|Today/.test(d.meta.label));
+    if (!urgent) return;
+    const t = setTimeout(() => {
+      setBubble(`⏰ Don't forget: "${urgent.title}" — ${urgent.meta.label}`);
+      setTimeout(() => setBubble(null), 5000);
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [deadlines]);
+
   /* ── derived (non-hook) ── */
   const snoozeUntil = (() => { try { return Number(localStorage.getItem("wp_snooze_until") || 0); } catch { return 0; } })();
   const isSnoozed = snoozeUntil > Date.now();
@@ -2939,6 +2962,22 @@ function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
     setTimeout(() => setCelebrating(false), 700);
     setTimeout(() => setBubble(null), 3000);
     setMenuOpen(false);
+  }
+  // Premium: turn the user's deadlines into a quick prioritised plan.
+  function automate() {
+    setMenuOpen(false);
+    if (!premium) {
+      setShowPanel(true);
+      setBubble("✨ Auto-planning is a Premium power — unlock it in my panel!");
+      setTimeout(() => setBubble(null), 4500);
+      return;
+    }
+    if (!deadlines.length) { setBubble("You're all caught up — nothing urgent to plan! 🌿"); setTimeout(() => setBubble(null), 3500); return; }
+    const plan = deadlines.slice(0, 3).map((d, i) => `${i + 1}. ${d.title} (${d.meta.label})`).join("   ");
+    setBubble(`📋 Your plan: ${plan}`);
+    setCelebrating(true);
+    setTimeout(() => setCelebrating(false), 600);
+    setTimeout(() => setBubble(null), 9000);
   }
 
   /* ── early returns (after ALL hooks) ── */
@@ -2976,15 +3015,15 @@ function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
         onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o) => !o); }}
         animate={petAnimate} transition={petTransition}
         className="cursor-grab active:cursor-grabbing grid place-items-center"
-        style={{ width: 116, height: 116, filter: `drop-shadow(0 0 12px ${aura})` }}
+        style={{ width: 150, height: 150, filter: `drop-shadow(0 0 14px ${aura})` }}
       >
-        {choice === "fox" && foxReady
-          ? <img src={FOX_IMG} width={108} height={108} draggable={false} alt="pet" style={{ objectFit: "contain" }} />
-          : <span style={{ fontSize: 64, lineHeight: 1 }}>{preset.emoji}</span>}
+        {catReady
+          ? <img src={CAT_IMG} width={142} height={142} draggable={false} alt="pet" style={{ objectFit: "contain" }} />
+          : <span style={{ fontSize: 84, lineHeight: 1 }}>{preset.emoji}</span>}
       </motion.div>
 
       {/* level badge + XP bar */}
-      <div className="mt-1 flex items-center gap-1.5" style={{ width: 116 }}>
+      <div className="mt-1 flex items-center gap-1.5" style={{ width: 150 }}>
         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: preset.color }}>Lv {petLevel}</span>
         <div className="flex-1 h-1.5 rounded-full bg-black/20 overflow-hidden">
           <div className="h-full rounded-full transition-all" style={{ width: `${xpPct}%`, background: "#25d366" }} />
@@ -2996,6 +3035,7 @@ function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
           <button onClick={feed} disabled={treats <= 0} className="w-full text-left px-3 py-2 hover:bg-black/5 disabled:opacity-40">🍪 Feed treat ({treats})</button>
           <button onClick={() => { setMenuOpen(false); sayIdle(); }} className="w-full text-left px-3 py-2 hover:bg-black/5">💬 Pet {preset.name}</button>
           <button onClick={() => { setMenuOpen(false); setShowPanel(true); }} className="w-full text-left px-3 py-2 hover:bg-black/5">🏡 Open companion panel</button>
+          <button onClick={automate} className="w-full text-left px-3 py-2 hover:bg-black/5">✨ Automate my day {premium ? "" : "🔒"}</button>
           <button onClick={() => { try { localStorage.setItem("wp_snooze_until", String(Date.now() + 30 * 60 * 1000)); } catch {} window.location.reload(); }} className="w-full text-left px-3 py-2 hover:bg-black/5">⏸ Snooze 30 min</button>
           <button onClick={() => { setMenuOpen(false); setCollapsed(true); }} className="w-full text-left px-3 py-2 hover:bg-black/5">🙈 Hide</button>
         </div>
@@ -3024,6 +3064,14 @@ function WebPet({ choice, aura, side, streak = 0, tasksToday = 0 }) {
               <div className="bg-black/5 rounded-lg p-2"><div className="text-black/50">Today</div><div className="font-bold">✅ {tasksToday}</div></div>
             </div>
             <button onClick={feed} disabled={treats <= 0} className="w-full mt-1 py-2 rounded-lg bg-[#25d366] text-white text-sm font-semibold disabled:opacity-40">🍪 Feed treat (+25 XP)</button>
+            {premium ? (
+              <div className="mt-1 text-[11px] text-center font-semibold" style={{ color: "#16a34a" }}>✨ Premium active — right-click me → Automate my day</div>
+            ) : (
+              <button onClick={() => { setPremium(true); setShowPanel(false); setBubble("✨ Premium unlocked! Right-click me → Automate my day."); setTimeout(() => setBubble(null), 4500); }}
+                className="w-full mt-1 py-2 rounded-lg text-white text-sm font-semibold" style={{ background: "linear-gradient(135deg,#f59e0b,#ef4444)" }}>
+                ✨ Go Premium — auto-plan deadlines
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -3136,7 +3184,7 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
       </nav>
 
       {/* Hatchling sprite pet floats over everything */}
-      {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} streak={gam.streak?.count || 0} tasksToday={gam.completedToday || 0} />}
+      {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} streak={gam.streak?.count || 0} tasksToday={gam.completedToday || 0} boards={boards} />}
     </div>
   );
 }
