@@ -14,6 +14,7 @@ import {
   WifiOff, ExternalLink, Pin,
 } from "lucide-react";
 import { useSession, useChats, useMessages, usePlanner, useBoards, useSyncedDoc, useVerification, api } from "@/lib/api";
+import PixelCat from "./PixelCat";
 
 /* ====================================================================== */
 /* THEMES — every theme uses the WhatsApp green palette                   */
@@ -2736,6 +2737,45 @@ function SettingsView({ T, user, themeKey, setTheme, onLogout, gam, settings, se
                   </div>
                 </>
               )}
+
+              {/* ── 🐱 Pixel Cat (animated canvas companion) ── */}
+              <div style={{ borderTop: "2px solid currentColor", opacity: 0.2, margin: "12px 0" }} />
+              <div className={`text-xs font-bold ${T.text} mb-2`}>🐱 Pixel Cat Settings</div>
+
+              <ToggleRow T={T} label="Enable Pixel Cat" hint="Animated canvas cat that roams, reacts to you & chats." value={settings.pixelCatEnabled !== false} onChange={(v) => set({ pixelCatEnabled: v })} />
+              <ToggleRow T={T} label="Roaming (walks around)" value={settings.pixelCatRoaming !== false} onChange={(v) => set({ pixelCatRoaming: v })} />
+              <ToggleRow T={T} label="Cursor eye tracking" value={settings.pixelCatEyes !== false} onChange={(v) => set({ pixelCatEyes: v })} />
+
+              <div className={`text-xs ${T.muted} mt-2`}>Chat theme</div>
+              <div className="flex gap-2 flex-wrap">
+                {[["green_clay", "Green Clay"], ["dark_forest", "Dark Forest"], ["kali_mint", "Kali Mint"], ["pixel_pink", "Pixel Pink"]].map(([k, lbl]) => (
+                  <button key={k} onClick={() => set({ pixelCatTheme: k })}
+                    className={`${(settings.pixelCatTheme || "green_clay") === k ? T.chipActive : T.chipIdle} px-3 py-1.5 rounded-full text-xs font-medium`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+
+              <div className={`text-xs ${T.muted} mt-2`}>Cat size: {(settings.pixelCatSize || 1)}x {!settings.premium && (settings.pixelCatSize || 1) > 1.5 ? "🔒" : ""}</div>
+              <input type="range" min={1} max={settings.premium ? 4 : 1.5} step={0.5}
+                value={Math.min(settings.pixelCatSize || 1, settings.premium ? 4 : 1.5)}
+                onChange={(e) => set({ pixelCatSize: Number(e.target.value) })}
+                className="w-full" style={{ accentColor: "#25d366" }} />
+              {!settings.premium && <div className={`text-[10px] ${T.muted}`}>🔒 up to 4x (XL) with Premium</div>}
+
+              <ToggleRow T={T} label="Premium (demo)" hint="Unlocks AI chat, XL size & smart task hints." value={!!settings.premium} onChange={(v) => set({ premium: v })} />
+              <ToggleRow T={T} label="AI Chat (Premium) 🔒" hint="Claude-powered cat replies." value={!!settings.pixelCatAI} onChange={(v) => set({ pixelCatAI: settings.premium ? v : false })} />
+              {settings.pixelCatAI && settings.premium && (
+                <div>
+                  <div className={`text-xs ${T.muted} mt-1`}>Anthropic API Key</div>
+                  <input type="password" placeholder="sk-ant-..." value={settings.pixelCatApiKey || ""}
+                    onChange={(e) => set({ pixelCatApiKey: e.target.value })}
+                    className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
+                </div>
+              )}
+
+              <button onClick={() => window.dispatchEvent(new CustomEvent("pixelcat:trigger", { detail: { state: "cheering", ms: 3000 } }))}
+                className={`${T.btn} w-full rounded-lg py-2 text-sm font-medium mt-1`}>🐱 Test Cat</button>
             </div>
           )}
 
@@ -2775,8 +2815,11 @@ const DEFAULT_SETTINGS = {
   notifMessages: true, notifBoards: true, notifSounds: true, notifPreviews: true,
   readReceipts: true, lastSeen: true, encryptLocal: false, disappearing: false,
   wallpaper: "#efeae2", language: "English", agent: true, autoDownload: false,
-  petEnabled: true, petChoice: "cat", petAura: "#25d366", petSide: "right",
+  petEnabled: false, petChoice: "cat", petAura: "#25d366", petSide: "right",
   compact: false,
+  premium: false,
+  pixelCatEnabled: true, pixelCatRoaming: true, pixelCatEyes: true,
+  pixelCatTheme: "green_clay", pixelCatSize: 1, pixelCatAI: false, pixelCatApiKey: "",
 };
 
 const PET_PRESETS = {
@@ -3162,6 +3205,17 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam }) {
 
       {/* Hatchling sprite pet floats over everything */}
       {settings.petEnabled && <WebPet choice={settings.petChoice} aura={settings.petAura} side={settings.petSide} streak={gam.streak?.count || 0} tasksToday={gam.completedToday || 0} boards={boards} />}
+      {settings.pixelCatEnabled !== false && (
+        <PixelCat
+          theme={settings.pixelCatTheme || "green_clay"}
+          roaming={settings.pixelCatRoaming !== false}
+          scale={settings.pixelCatSize || 1}
+          isPremium={settings.premium || false}
+          apiKey={settings.pixelCatApiKey || ""}
+          aiEnabled={!!(settings.pixelCatAI && settings.premium)}
+          onTaskComplete={() => window.dispatchEvent(new CustomEvent("webpet:celebrate"))}
+        />
+      )}
     </div>
   );
 }
