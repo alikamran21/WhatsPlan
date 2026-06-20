@@ -61,11 +61,9 @@ export const config = {
     // How long a successful verification stays valid. After this, turning AI
     // reading ON requires a fresh OTP again. Default 30 seconds.
     windowMs: Number(process.env.VERIFY_WINDOW_SECONDS || 30) * 1000,
-    // Echo the code in the response + console when set, or whenever Brevo has no
-    // key (so local dev works without an account). Turn OFF in production.
-    devEcho:
-      process.env.OTP_DEV_ECHO !== undefined
-        ? String(process.env.OTP_DEV_ECHO).toLowerCase() === "true"
-        : !process.env.BREVO_API_KEY,
+    // Off by default (production-safe). Only echoes the OTP back to the client +
+    // console when OTP_DEV_ECHO=true is explicitly set — for local dev with no
+    // email provider. In production, leave it unset and configure BREVO_API_KEY.
+    devEcho: String(process.env.OTP_DEV_ECHO || "").toLowerCase() === "true",
   },
 };

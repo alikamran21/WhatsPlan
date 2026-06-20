@@ -1873,14 +1873,12 @@ function VerifyDialog({ T, open, onClose, onVerified, defaultEmail }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [devCode, setDevCode] = useState("");
 
   useEffect(() => {
     if (open) {
       setStep("email");
       setCode("");
       setError("");
-      setDevCode("");
       setEmail(defaultEmail || "");
     }
   }, [open, defaultEmail]);
@@ -1894,8 +1892,11 @@ function VerifyDialog({ T, open, onClose, onVerified, defaultEmail }) {
     setBusy(true);
     try {
       const r = await api.requestOtp(e);
-      setStep("code");
-      if (r?.devCode) setDevCode(r.devCode);
+      if (r && r.sent === false) {
+        setError("We couldn't send the email — check the address and try again.");
+      } else {
+        setStep("code");
+      }
     } catch (err) {
       setError(err?.message || "Couldn't send the code. Is the backend running?");
     } finally {
@@ -1974,11 +1975,6 @@ function VerifyDialog({ T, open, onClose, onVerified, defaultEmail }) {
                 placeholder="000000"
                 className="flex-1 bg-transparent outline-none text-base tracking-[0.5em] font-mono" />
             </div>
-            {devCode && (
-              <div className={`text-[11px] ${T.muted}`}>
-                Dev mode (no email configured) — your code is <span className="font-mono font-semibold">{devCode}</span>
-              </div>
-            )}
             {error && <div className="text-xs text-red-500">{error}</div>}
             <button onClick={verify} disabled={busy}
               className={`${T.btn} w-full rounded-lg py-2 text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60`}>
