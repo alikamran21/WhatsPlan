@@ -46,9 +46,12 @@ export function registerRoutes(app, sessions) {
   /* ── Chats & messages ────────────────────────────────────────────── */
   api.get("/groups", wrap(async (req, res) => res.json(await req.wa.listGroups())));
 
-  api.get("/chats", wrap(async (req, res) =>
-    res.json(await req.store.list("chats", { orderBy: "timestamp", dir: "desc" })),
-  ));
+  api.get("/chats", wrap(async (req, res) => {
+    // Refresh the full list on open/boot (fire-and-forget); the post-sync
+    // "status" event makes the UI reload once all chats are saved.
+    req.wa.ensureChatsSynced?.();
+    res.json(await req.store.list("chats", { orderBy: "timestamp", dir: "desc" }));
+  }));
 
   api.patch("/chats/:id", wrap(async (req, res) => {
     const id = req.params.id;

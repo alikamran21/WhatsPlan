@@ -27,6 +27,8 @@ export class WhatsAppService extends EventEmitter {
     this.qrDataUrl = null;
     this.me = null;
     this.meName = null;
+    this._syncing = false; // chat-sync overlap guard (held across the retry run)
+    this._lastSyncOk = 0;  // ms timestamp of the last successful chat sync
   }
 
   getState() {
@@ -118,10 +120,16 @@ export class WhatsAppService extends EventEmitter {
       this.qrDataUrl = null;
       this.me = this.client.info?.wid?._serialized || null;
       this.meName = this.client.info?.pushname || null;
+      this._syncing = false; // clear any stale guard from a previous connection
+      this._lastSyncOk = 0;
       this._setStatus("ready");
-      // Let WhatsApp Web finish settling before querying chats — calling
-      // getChats too early triggers "execution context destroyed".
-      setTimeout(() => this.syncChats().catch((e) => console.warn("[wa] chat sync failed:", e.message)), 6000);
+      // WhatsApp Web hydrates its chat list gradually after a link, so a single
+      // early getChats often returns only a few chats. Sweep several times so the
+      // FULL list is captured. ensureChatsSynced guards against overlap and
+      // re-emits "status" each time, so the UI reloads as more chats appear.
+      [6000, 20000, 45000, 90000].forEach((d) =>
+        setTimeout(() => this.ensureChatsSynced(), d),
+      );
     });
 
     this.client.on("disconnected", (reason) => {
@@ -189,9 +197,11 @@ export class WhatsAppService extends EventEmitter {
     // of undefined (reading 'getChats')" over and over. A fresh sync kicks off
     // on the next "ready" event.
     if (this.status !== "ready" || !this.client) {
+      this._syncing = false;
       console.warn("[wa] chat sync aborted — client not ready (will resync on reconnect)");
       return;
     }
+    if (attempt === 1) this._syncing = true; // block overlapping syncs for the whole retry run
     try {
       // getChats hangs while WhatsApp Web is still syncing history after a
       // fresh link. Fail each attempt fast, then keep retrying for a few mins.
@@ -212,7 +222,9 @@ export class WhatsAppService extends EventEmitter {
         });
         saved++;
       }
-      console.log(`[wa] synced ${saved} watched chat(s)`);
+      this._lastSyncOk = Date.now();
+      this._syncing = false;
+      console.log(`[wa] synced ${saved} watched chat(s) of ${chats.length} total`);
       this.emit("status", this.getState());
     } catch (e) {
       console.warn(`[wa] chat sync attempt ${attempt}/${MAX} failed: ${e.message}`);
@@ -220,8 +232,23 @@ export class WhatsAppService extends EventEmitter {
         await new Promise((r) => setTimeout(r, 20000));
         return this.syncChats(attempt + 1);
       }
+      this._syncing = false;
       console.warn("[wa] chat sync gave up; chats will appear as new messages arrive");
     }
+  }
+
+  /**
+   * Resync the chat list on demand — called when the UI opens GET /api/chats so
+   * the FULL list shows up on every login/boot, not only after the single
+   * post-"ready" sync (which can fail on a busy account or be lost on restart).
+   * Cheap & safe: no-ops when not ready, already syncing, or synced seconds ago.
+   * Fire-and-forget; on success it emits "status" so the browser reloads chats.
+   */
+  ensureChatsSynced() {
+    if (this.status !== "ready" || !this.client) return;
+    if (this._syncing) return;
+    if (Date.now() - this._lastSyncOk < 10000) return; // synced very recently
+    this.syncChats().catch(() => {});
   }
 
   async handleMessage(m) {
