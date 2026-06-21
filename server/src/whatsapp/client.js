@@ -439,6 +439,22 @@ export class WhatsAppService extends EventEmitter {
     ]);
   }
 
+  /**
+   * Live-fetch a chat's recent messages, persist them, and emit "message" for
+   * the ones we hadn't seen before (so an open thread updates without a reload).
+   * Returns the fetched list. Safe to call in the background — the messages
+   * route serves the cached thread instantly and calls this to top it up.
+   */
+  async refreshMessages(chatId, limit = 40) {
+    const live = await this.fetchMessages(chatId, limit);
+    for (const m of live) {
+      const existing = await this.store.get("messages", m.id);
+      await this.store.upsert("messages", m.id, m);
+      if (!existing) this.emit("message", m); // only genuinely new ones reach the UI
+    }
+    return live;
+  }
+
   async sendMessage(chatId, text) {
     if (config.readOnly) throw new Error("Read-only mode is on (READ_ONLY=true) — sending is disabled");
     if (this.status !== "ready") throw new Error("WhatsApp is not connected");

@@ -71,12 +71,19 @@ export function registerRoutes(app, sessions) {
 
   api.get("/chats/:id/messages", wrap(async (req, res) => {
     const chatId = req.params.id;
-    let msgs = await req.wa.fetchMessages(chatId, 40).catch(() => []);
-    if (!msgs.length) {
-      const all = await req.store.list("messages", { orderBy: "timestamp", dir: "asc" });
-      msgs = all.filter((m) => m.chatId === chatId);
+    // Serve the cached thread INSTANTLY (the old code awaited a live WhatsApp
+    // fetch on every open — up to 8s each time). Then top it up in the
+    // background; new messages stream in over the socket.
+    const all = await req.store.list("messages", { orderBy: "timestamp", dir: "asc" });
+    const cached = all.filter((m) => m.chatId === chatId);
+    if (cached.length) {
+      res.json(cached);
+      req.wa.refreshMessages?.(chatId, 40).catch(() => {});
+      return;
     }
-    res.json(msgs);
+    // Nothing cached yet — do one bounded live fetch so the first open isn't blank.
+    const live = await req.wa.refreshMessages?.(chatId, 40).catch(() => []);
+    res.json(live || []);
   }));
 
   api.post("/chats/:id/messages", wrap(async (req, res) => {
