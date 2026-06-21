@@ -27,8 +27,9 @@ export class WhatsAppService extends EventEmitter {
     this.qrDataUrl = null;
     this.me = null;
     this.meName = null;
-    this._syncing = false; // chat-sync overlap guard (held across the retry run)
+    this._syncing = false; // chat-sync overlap guard
     this._lastSyncOk = 0;  // ms timestamp of the last successful chat sync
+    this._syncLoop = null; // interval handle for the post-ready hydrate loop
   }
 
   getState() {
@@ -123,18 +124,16 @@ export class WhatsAppService extends EventEmitter {
       this._syncing = false; // clear any stale guard from a previous connection
       this._lastSyncOk = 0;
       this._setStatus("ready");
-      // WhatsApp Web hydrates its chat list gradually after a link, so a single
-      // early getChats often returns only a few chats. Sweep several times so the
-      // FULL list is captured. ensureChatsSynced guards against overlap and
-      // re-emits "status" each time, so the UI reloads as more chats appear.
-      [6000, 20000, 45000, 90000].forEach((d) =>
-        setTimeout(() => this.ensureChatsSynced(), d),
-      );
+      // WhatsApp Web hydrates its chat list gradually after a (re)connect, so a
+      // single early getChats returns nothing or only a few chats. Keep polling
+      // until the list is populated and stable, pushing live updates as it grows.
+      this._startChatSyncLoop();
     });
 
     this.client.on("disconnected", (reason) => {
       console.warn("[wa] disconnected:", reason);
       this.qrDataUrl = null;
+      this._stopChatSyncLoop();
       this._setStatus("disconnected");
       this.client = null;
     });
@@ -159,6 +158,7 @@ export class WhatsAppService extends EventEmitter {
     } catch (e) {
       console.warn("[wa] logout error:", e.message);
     }
+    this._stopChatSyncLoop();
     this.client = null;
     this.me = null;
     this.meName = null;
@@ -172,6 +172,7 @@ export class WhatsAppService extends EventEmitter {
    * next start() re-authenticates silently). Used to evict idle sessions.
    */
   async shutdown() {
+    this._stopChatSyncLoop();
     try { if (this.client) await this.client.destroy(); }
     catch (e) { console.warn("[wa] shutdown error:", e.message); }
     this.client = null;
@@ -189,66 +190,81 @@ export class WhatsAppService extends EventEmitter {
     return chat.isGroup || config.watchDms;
   }
 
-  async syncChats(attempt = 1) {
-    const MAX = 12;
-    // The headless browser can drop/reload mid-sync (logs show "Target closed").
-    // When that happens the "disconnected" handler nulls this.client, so bail
-    // out of this stale retry loop instead of throwing "Cannot read properties
-    // of undefined (reading 'getChats')" over and over. A fresh sync kicks off
-    // on the next "ready" event.
-    if (this.status !== "ready" || !this.client) {
-      this._syncing = false;
-      console.warn("[wa] chat sync aborted — client not ready (will resync on reconnect)");
-      return;
+  /**
+   * One chat-sync pass: fetch the list from WhatsApp and upsert every watched
+   * chat. Returns the number saved; throws if getChats fails/times out. Only
+   * ever adds/updates (never deletes), so partial passes accumulate safely.
+   */
+  async _syncOnce(timeoutMs = 30000) {
+    const chats = await Promise.race([
+      this.client.getChats(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("getChats timed out (still syncing?)")), timeoutMs)),
+    ]);
+    let saved = 0;
+    for (const c of chats) {
+      if (!this._watching(c)) continue;
+      await this.store.upsert("chats", c.id._serialized, {
+        id: c.id._serialized,
+        name: c.name || c.id.user,
+        isGroup: !!c.isGroup,
+        lastMessage: c.lastMessage?.body || "",
+        timestamp: (c.timestamp || 0) * 1000,
+        unread: c.unreadCount || 0,
+      });
+      saved++;
     }
-    if (attempt === 1) this._syncing = true; // block overlapping syncs for the whole retry run
-    try {
-      // getChats hangs while WhatsApp Web is still syncing history after a
-      // fresh link. Fail each attempt fast, then keep retrying for a few mins.
-      const chats = await Promise.race([
-        this.client.getChats(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("getChats timed out (still syncing?)")), 60000)),
-      ]);
-      let saved = 0;
-      for (const c of chats) {
-        if (!this._watching(c)) continue;
-        await this.store.upsert("chats", c.id._serialized, {
-          id: c.id._serialized,
-          name: c.name || c.id.user,
-          isGroup: !!c.isGroup,
-          lastMessage: c.lastMessage?.body || "",
-          timestamp: (c.timestamp || 0) * 1000,
-          unread: c.unreadCount || 0,
-        });
-        saved++;
-      }
-      this._lastSyncOk = Date.now();
-      this._syncing = false;
-      console.log(`[wa] synced ${saved} watched chat(s) of ${chats.length} total`);
-      this.emit("status", this.getState());
-    } catch (e) {
-      console.warn(`[wa] chat sync attempt ${attempt}/${MAX} failed: ${e.message}`);
-      if (attempt < MAX) {
-        await new Promise((r) => setTimeout(r, 20000));
-        return this.syncChats(attempt + 1);
-      }
-      this._syncing = false;
-      console.warn("[wa] chat sync gave up; chats will appear as new messages arrive");
-    }
+    this._lastSyncOk = Date.now();
+    console.log(`[wa] synced ${saved} watched chat(s) of ${chats.length} total`);
+    this.emit("status", this.getState()); // nudges the browser to reload /api/chats
+    return saved;
   }
 
   /**
-   * Resync the chat list on demand — called when the UI opens GET /api/chats so
-   * the FULL list shows up on every login/boot, not only after the single
-   * post-"ready" sync (which can fail on a busy account or be lost on restart).
-   * Cheap & safe: no-ops when not ready, already syncing, or synced seconds ago.
-   * Fire-and-forget; on success it emits "status" so the browser reloads chats.
+   * Keep syncing until the chat list is actually populated. WhatsApp Web hydrates
+   * its chats gradually after (re)connecting, so the first getChats returns
+   * nothing or only a few — the old one-shot sweep is exactly why the UI showed
+   * an empty / single-chat list. Poll every 8s (pushing live updates) and stop
+   * once the count is non-zero AND stopped growing, or after a few minutes.
+   */
+  _startChatSyncLoop() {
+    this._stopChatSyncLoop();
+    const startedAt = Date.now();
+    const MAX_MS = 5 * 60 * 1000;
+    let prev = -1;
+    const tick = async () => {
+      if (this.status !== "ready" || !this.client) return this._stopChatSyncLoop();
+      if (this._syncing) return;
+      this._syncing = true;
+      let saved = -1;
+      try { saved = await this._syncOnce(30000); }
+      catch (e) { console.warn(`[wa] chat sync tick failed: ${e.message}`); }
+      finally { this._syncing = false; }
+      const stable = saved > 0 && saved === prev; // populated and no longer growing
+      prev = saved;
+      if (stable || Date.now() - startedAt > MAX_MS) this._stopChatSyncLoop();
+    };
+    this._syncLoop = setInterval(tick, 8000);
+    tick(); // first attempt right away
+  }
+
+  _stopChatSyncLoop() {
+    if (this._syncLoop) { clearInterval(this._syncLoop); this._syncLoop = null; }
+  }
+
+  /**
+   * Resync on demand — called when the UI opens GET /api/chats, so a fresh login
+   * /boot refreshes the list even after the post-ready loop has stopped. Cheap &
+   * safe: no-ops when not ready, already syncing, or synced within the last 10s.
+   * Fire-and-forget; on success _syncOnce emits "status" so the browser reloads.
    */
   ensureChatsSynced() {
     if (this.status !== "ready" || !this.client) return;
     if (this._syncing) return;
-    if (Date.now() - this._lastSyncOk < 10000) return; // synced very recently
-    this.syncChats().catch(() => {});
+    if (Date.now() - this._lastSyncOk < 10000) return;
+    this._syncing = true;
+    this._syncOnce(20000)
+      .catch((e) => console.warn(`[wa] on-demand chat sync failed: ${e.message}`))
+      .finally(() => { this._syncing = false; });
   }
 
   async handleMessage(m) {
