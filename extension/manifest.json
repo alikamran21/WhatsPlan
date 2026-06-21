@@ -18,5 +18,17 @@
     "128": "icons/icon128.png"
   },
   "permissions": ["storage", "tabs"],
-  "host_permissions": ["http://*/*", "https://*/*"]
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://whatsplan.social/*",
+        "https://*.whatsplan.social/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

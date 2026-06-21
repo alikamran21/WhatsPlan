@@ -6,12 +6,14 @@
  * Mirrors the REST endpoints in src/lib/api.ts.
  * ==================================================================== */
 
-const KEYS = { api: "wp_api_url", site: "wp_site_url" };
+const KEYS = { api: "wp_api_url", site: "wp_site_url", sid: "wp_sid" };
 const POLL_MS = 5000;
 // Live deployment — used until the user overrides it in settings.
 const DEFAULT_URL = "https://whatsplan.social";
 
-let cfg = { api: "", site: "" };
+// cfg.sid = the per-browser session id the backend requires (X-WP-Session).
+// It's auto-captured from the website by content.js; can be set manually too.
+let cfg = { api: "", site: "", sid: "" };
 let pollTimer = null;
 
 /* ---- tiny DOM helpers ---- */
@@ -26,27 +28,42 @@ const el = (tag, cls, text) => {
 /* ---- config persistence ---- */
 function loadConfig() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([KEYS.api, KEYS.site], (v) => {
+    chrome.storage.local.get([KEYS.api, KEYS.site, KEYS.sid], (v) => {
       cfg.api = (v[KEYS.api] || DEFAULT_URL).replace(/\/+$/, "");
       cfg.site = (v[KEYS.site] || DEFAULT_URL).replace(/\/+$/, "");
+      cfg.sid = v[KEYS.sid] || "";
       resolve(cfg);
     });
   });
 }
 
-function saveConfig(api, site) {
+function saveConfig(api, site, sid) {
   cfg.api = api.replace(/\/+$/, "");
   cfg.site = site.replace(/\/+$/, "");
+  const patch = { [KEYS.api]: cfg.api, [KEYS.site]: cfg.site };
+  if (sid != null && sid.trim()) { cfg.sid = sid.trim(); patch[KEYS.sid] = cfg.sid; }
+  return new Promise((resolve) => chrome.storage.local.set(patch, resolve));
+}
+
+/* Re-read the session id captured from the website by content.js (it may land
+ * after the popup first opened). */
+function refreshSid() {
   return new Promise((resolve) =>
-    chrome.storage.local.set({ [KEYS.api]: cfg.api, [KEYS.site]: cfg.site }, resolve)
+    chrome.storage.local.get([KEYS.sid], (v) => { if (v[KEYS.sid]) cfg.sid = v[KEYS.sid]; resolve(cfg.sid); })
   );
 }
 
 /* ---- REST ---- */
+// The backend requires the X-WP-Session header (per-browser session). Without
+// it every call 401s — which is why the extension needs the site's session id.
+function authHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (cfg.sid) h["X-WP-Session"] = cfg.sid;
+  return h;
+}
+
 async function apiGet(path) {
-  const res = await fetch(`${cfg.api}/api${path}`, {
-    headers: { "Content-Type": "application/json" },
-  });
+  const res = await fetch(`${cfg.api}/api${path}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.status === 204 ? null : res.json();
 }
@@ -54,7 +71,7 @@ async function apiGet(path) {
 async function apiPatch(path, body) {
   const res = await fetch(`${cfg.api}/api${path}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${res.status}`);
@@ -168,6 +185,15 @@ async function fetchAll() {
     showEmpty("Set your backend URL in settings to load your planner.");
     return;
   }
+  // The website hands us its session id via content.js — it may arrive after the
+  // popup opened, so re-check storage before giving up.
+  if (!cfg.sid) await refreshSid();
+  if (!cfg.sid) {
+    setStatus("offline");
+    showEmpty("Open whatsplan.social once (while signed in) to link the extension.\nOr paste your Session ID in settings ⚙.");
+    return;
+  }
+
   const [session, meetings, tasks, announcements] = await Promise.allSettled([
     apiGet("/session"),
     apiGet("/meetings"),
@@ -177,7 +203,10 @@ async function fetchAll() {
 
   if (session.status === "rejected" && meetings.status === "rejected") {
     setStatus("offline");
-    showEmpty("WhatsPlan is offline right now.\nCheck your connection, then hit refresh ↻ — or open the full app below.");
+    const unauth = String(session.reason?.message || "").includes("401");
+    showEmpty(unauth
+      ? "Couldn't load your planner.\nRe-link by opening whatsplan.social while signed in."
+      : "WhatsPlan is offline right now.\nCheck your connection, then hit refresh ↻ — or open the full app below.");
     return;
   }
 
@@ -227,15 +256,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!$("settings").classList.contains("hidden")) {
       $("api-url").value = cfg.api;
       $("site-url").value = cfg.site;
+      $("sid").value = cfg.sid;
     }
   });
 
   $("save-btn").addEventListener("click", async () => {
-    await saveConfig($("api-url").value.trim(), $("site-url").value.trim());
+    await saveConfig($("api-url").value.trim(), $("site-url").value.trim(), $("sid").value.trim());
     $("save-hint").textContent = "Saved ✓";
     setTimeout(() => ($("save-hint").textContent = ""), 1500);
     $("settings").classList.add("hidden");
     fetchAll();
+  });
+
+  // The session id can be captured by content.js while the popup is open — pick
+  // it up live and (re)load once it arrives.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[KEYS.sid]?.newValue) {
+      cfg.sid = changes[KEYS.sid].newValue;
+      fetchAll();
+    }
   });
 
   $("open-app").addEventListener("click", () => {
