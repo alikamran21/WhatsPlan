@@ -53,6 +53,33 @@ function refreshSid() {
   );
 }
 
+/* Robust fallback: read wp_sid straight out of any open WhatsPlan tab. Works
+ * even if the content script hasn't run yet (e.g. right after reloading the
+ * extension) — as long as the site is open in some tab. */
+async function grabSidFromTab() {
+  try {
+    if (!chrome.scripting || !chrome.tabs) return "";
+    const origin = new URL(cfg.site || DEFAULT_URL).origin;
+    const tabs = await chrome.tabs.query({ url: origin + "/*" });
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      const [res] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => { try { return localStorage.getItem("wp_sid"); } catch { return null; } },
+      });
+      const sid = res && res.result;
+      if (sid && sid.length >= 12) {
+        cfg.sid = sid;
+        chrome.storage.local.set({ [KEYS.sid]: sid });
+        return sid;
+      }
+    }
+  } catch (e) {
+    /* no scripting access / no matching tab — fall back to other paths */
+  }
+  return "";
+}
+
 /* ---- REST ---- */
 // The backend requires the X-WP-Session header (per-browser session). Without
 // it every call 401s — which is why the extension needs the site's session id.
@@ -185,12 +212,13 @@ async function fetchAll() {
     showEmpty("Set your backend URL in settings to load your planner.");
     return;
   }
-  // The website hands us its session id via content.js — it may arrive after the
-  // popup opened, so re-check storage before giving up.
+  // Find the website's session id: cached value first, then read it live from an
+  // open WhatsPlan tab. This is what the backend needs (X-WP-Session).
   if (!cfg.sid) await refreshSid();
+  if (!cfg.sid) await grabSidFromTab();
   if (!cfg.sid) {
     setStatus("offline");
-    showEmpty("Open whatsplan.social once (while signed in) to link the extension.\nOr paste your Session ID in settings ⚙.");
+    showEmpty("Open whatsplan.social in a tab (while signed in) to link the extension, then hit refresh ↻.\nOr paste your Session ID in settings ⚙.");
     return;
   }
 
