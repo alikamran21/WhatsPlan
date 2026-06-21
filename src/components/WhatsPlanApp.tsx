@@ -2898,6 +2898,8 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam, reconnecting }) {
 /* ====================================================================== */
 export default function WhatsPlanApp() {
   const [splashDone, setSplashDone] = useState(false);
+  // Show the splash only on the first visit; returning users skip straight in.
+  useEffect(() => { if (LS.get("wp_splash_seen", false)) setSplashDone(true); }, []);
   const [themeKey, setThemeKey] = useLocal("wp_theme", null); // null = not yet picked
   const gam = useGamification();
   const wa = useSession();
@@ -2939,7 +2941,7 @@ export default function WhatsPlanApp() {
 
   return (
     <AnimatePresence mode="wait">
-      {!splashDone && <Splash key="splash" onDone={() => setSplashDone(true)} />}
+      {!splashDone && <Splash key="splash" onDone={() => { LS.set("wp_splash_seen", true); setSplashDone(true); }} />}
       {splashDone && !linked && (
         <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <Login wa={wa} />

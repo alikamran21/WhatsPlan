@@ -130,6 +130,17 @@ function readLocalBoards(): any[] {
   try { return JSON.parse(localStorage.getItem(BOARDS_LS_KEY) || "[]"); } catch { return []; }
 }
 
+/* Tiny localStorage cache so chats/planner paint INSTANTLY from the last-known
+ * data, then revalidate from the server in the background (stale-while-revalidate). */
+function lsGet<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
+}
+function lsSet(key: string, val: unknown): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* quota / private mode */ }
+}
+
 /* ---- helpers ---- */
 function upsertById<T extends { id: string }>(arr: T[], item: T): T[] {
   const i = arr.findIndex((x) => x.id === item.id);
@@ -183,11 +194,21 @@ export function useSession() {
 }
 
 /** Watched chats, kept fresh as new messages arrive. */
+const CHATS_CACHE = "wp_chats_cache";
 export function useChats() {
   const [chats, setChats] = useState<Chat[]>([]);
   useEffect(() => {
     let alive = true;
-    const load = () => api.getChats().then((c) => alive && setChats(c || [])).catch(() => {});
+    // Instant: paint the last-known chats from cache, then revalidate.
+    const cached = lsGet<Chat[]>(CHATS_CACHE, []);
+    if (cached.length) setChats(cached);
+    const load = () =>
+      api.getChats().then((c) => {
+        if (!alive || !c) return;
+        // Don't clobber a good list with a transient empty (e.g. mid-resync).
+        setChats((prev) => (c.length === 0 && prev.length > 0 ? prev : c));
+        if (c.length > 0) lsSet(CHATS_CACHE, c);
+      }).catch(() => {});
     load();
     const s = getSocket();
     if (!s) return;
@@ -227,12 +248,16 @@ export function usePlanner() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const reload = useCallback(() => {
-    api.getMeetings().then((m) => setMeetings(m || [])).catch(() => {});
-    api.getTasks().then((t) => setTasks(t || [])).catch(() => {});
-    api.getAnnouncements().then((a) => setAnnouncements(a || [])).catch(() => {});
+    api.getMeetings().then((m) => { if (m) { setMeetings(m); lsSet("wp_meetings_cache", m); } }).catch(() => {});
+    api.getTasks().then((t) => { if (t) { setTasks(t); lsSet("wp_tasks_cache", t); } }).catch(() => {});
+    api.getAnnouncements().then((a) => { if (a) { setAnnouncements(a); lsSet("wp_announcements_cache", a); } }).catch(() => {});
   }, []);
 
   useEffect(() => {
+    // Instant: paint the last-known planner from cache, then revalidate.
+    const cm = lsGet<Meeting[]>("wp_meetings_cache", []); if (cm.length) setMeetings(cm);
+    const ct = lsGet<Task[]>("wp_tasks_cache", []); if (ct.length) setTasks(ct);
+    const ca = lsGet<Announcement[]>("wp_announcements_cache", []); if (ca.length) setAnnouncements(ca);
     reload();
     const s = getSocket();
     if (!s) return;
