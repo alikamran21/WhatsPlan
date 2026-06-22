@@ -243,10 +243,31 @@ function uid() {
 }
 
 function useLocal(key, initial) {
-  const [v, setV] = useState(initial);
-  useEffect(() => { setV(LS.get(key, initial)); /* eslint-disable-next-line */ }, []);
+  // Read the stored value synchronously on the client so the very first render
+  // already has it (the old version started at `initial` and hydrated in an
+  // effect, which made e.g. the theme picker flash on every login). SSR only
+  // ever renders the splash, so there's no hydration mismatch here.
+  const [v, setV] = useState(() => (typeof window === "undefined" ? initial : LS.get(key, initial)));
   useEffect(() => { LS.set(key, v); }, [key, v]);
   return [v, setV];
+}
+
+/* Real contacts to assign / @mention on boards — derived from your WhatsApp
+ * chats (DMs are people), cached by useChats. Snapshot at mount; good enough
+ * for the quick-pick lists. Empty (free-text still works) until chats load. */
+function useContacts() {
+  const [contacts, setContacts] = useState([]);
+  useEffect(() => {
+    try {
+      const chats = JSON.parse(localStorage.getItem("wp_chats_cache") || "[]");
+      const names = (Array.isArray(chats) ? chats : [])
+        .filter((c) => c && !c.isGroup && c.name)
+        .map((c) => String(c.name).trim())
+        .filter(Boolean);
+      setContacts(Array.from(new Set(names)).slice(0, 60));
+    } catch { /* no cache yet */ }
+  }, []);
+  return contacts;
 }
 
 /* ====================================================================== */
@@ -769,6 +790,13 @@ function BoardsView({ T, boards, setBoards, gam }) {
   const [switchingBoard, setSwitchingBoard] = useState(null);
   const open = boards.find((b) => b.id === openId);
 
+  // "N" shortcut → open the board creator.
+  useEffect(() => {
+    const onNew = () => { setOpenId(null); setCreating(true); };
+    window.addEventListener("wp:new-board", onNew);
+    return () => window.removeEventListener("wp:new-board", onNew);
+  }, []);
+
   // Change a board's style in place, preserving its tasks (keeps id + createdAt).
   function switchBoardType(boardId, newType) {
     setBoards(boards.map((b) => (b.id === boardId ? convertBoard(b, newType) : b)));
@@ -1096,13 +1124,17 @@ function dueMeta(due, done) {
   return { label: fmt, color: "#64748b" };
 }
 
-function MentionEditor({ T, mentions, onChange }) {
+function MentionEditor({ T, mentions, onChange, contacts = [] }) {
   const [v, setV] = useState("");
-  function add() {
-    const name = v.replace(/^@/, "").trim();
-    if (name && !mentions.includes(name)) onChange([...mentions, name]);
+  function add(name) {
+    const n = (name ?? v).replace(/^@/, "").trim();
+    if (n && !mentions.includes(n)) onChange([...mentions, n]);
     setV("");
   }
+  const q = v.replace(/^@/, "").trim().toLowerCase();
+  const suggestions = contacts
+    .filter((c) => !mentions.includes(c) && (!q || c.toLowerCase().includes(q)))
+    .slice(0, 8);
   return (
     <div>
       <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><MessageCircle className="w-3 h-3" /> Mention people</div>
@@ -1120,6 +1152,13 @@ function MentionEditor({ T, mentions, onChange }) {
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
         placeholder="@name, then Enter"
         className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {suggestions.map((c) => (
+            <button key={c} onClick={() => add(c)} className={`${T.chipIdle} px-2 py-0.5 rounded-full text-xs`}>@{c}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1240,11 +1279,11 @@ function KanbanView({ T, board, onChange, gam, allBoards = [], onMoveCard }) {
   );
 }
 
-const QUICK_CONTACTS = ["ali.khan", "sara.ahmed", "usman.malik", "zara.ch", "bilal.r"];
 const TAG_OPTIONS = ["bug", "feature", "design", "urgent", "review"];
 
 function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], currentBoardId, onMove }) {
   const moveTargets = allBoards.filter((b) => b.id !== currentBoardId && ["kanban", "checklist", "calendar"].includes(b.type));
+  const contacts = useContacts();
   const [comment, setComment] = useState("");
   function sendComment() {
     const text = comment.trim();
@@ -1341,16 +1380,21 @@ function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], current
               </div>
               <div>
                 <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><User className="w-3 h-3" /> Assign to contact</div>
-                <div className="flex flex-wrap gap-1 mb-1.5">
-                  {QUICK_CONTACTS.map((c) => (
-                    <button key={c} onClick={() => onSave({ assignee: card.assignee === c ? "" : c })}
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${card.assignee === c ? T.chipActive : T.chipIdle}`}>
-                      @{c}
-                    </button>
-                  ))}
-                </div>
+                {contacts.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1.5 max-h-24 overflow-y-auto thin-scroll">
+                    {contacts
+                      .filter((c) => { const q = (card.assignee || "").toLowerCase(); return c === card.assignee || !q || c.toLowerCase().includes(q); })
+                      .slice(0, 12)
+                      .map((c) => (
+                        <button key={c} onClick={() => onSave({ assignee: card.assignee === c ? "" : c })}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${card.assignee === c ? T.chipActive : T.chipIdle}`}>
+                          @{c}
+                        </button>
+                      ))}
+                  </div>
+                )}
                 <input value={card.assignee || ""} onChange={(e) => onSave({ assignee: e.target.value })}
-                  placeholder="Or type a name…"
+                  placeholder={contacts.length ? "Pick a contact above, or type a name…" : "Type a name…"}
                   className={`${T.input} w-full rounded-lg px-3 py-2 text-sm`} />
               </div>
               <div>
@@ -1367,7 +1411,7 @@ function CardModal({ T, card, onClose, onSave, onDelete, allBoards = [], current
                   })}
                 </div>
               </div>
-              <MentionEditor T={T} mentions={card.mentions || []} onChange={(m) => onSave({ mentions: m })} />
+              <MentionEditor T={T} mentions={card.mentions || []} contacts={contacts} onChange={(m) => onSave({ mentions: m })} />
               <div>
                 <div className={`text-xs ${T.muted} mb-1 flex items-center gap-1`}><MessageCircle className="w-3 h-3" /> Mentions / comments</div>
                 {(card.comments || []).length > 0 && (
@@ -2098,6 +2142,14 @@ function ChatsView({ T, wallpaper }) {
 
   const aiOn = (c) => (c.id in aiOverrides ? aiOverrides[c.id] : !!c.aiEnabled);
 
+  // "/" shortcut → focus the chat search box.
+  const searchRef = useRef(null);
+  useEffect(() => {
+    const onFocus = () => { searchRef.current?.focus(); searchRef.current?.select?.(); };
+    window.addEventListener("wp:focus-search", onFocus);
+    return () => window.removeEventListener("wp:focus-search", onFocus);
+  }, []);
+
   async function applyAi(c, val) {
     setAiOverrides((m) => ({ ...m, [c.id]: val }));
     // A locked chat can't stay open — close it if it's the one being disabled.
@@ -2154,7 +2206,7 @@ function ChatsView({ T, wallpaper }) {
         <div className="p-3 border-b border-current/10 space-y-3">
           <div className={`${T.input} flex items-center gap-2 rounded-lg px-3 py-1.5`}>
             <Search className="w-4 h-4 opacity-60" />
-            <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
+            <input ref={searchRef} value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search chats" className="flex-1 bg-transparent outline-none text-sm" />
           </div>
           <div className={`text-[11px] ${T.muted} flex items-start gap-1.5`}>
             <Sparkles className="w-3 h-3 mt-0.5 shrink-0 text-[#25d366]" />
@@ -2775,6 +2827,30 @@ function AppShell({ user, themeKey, setTheme, onLogout, gam, reconnecting }) {
   const [boards, setBoards] = useBoards();
   const [settings, setSettings] = useLocal("wp_settings", DEFAULT_SETTINGS);
   const [glowColor, setGlowColor] = useLocal("wp_glow", "#25d366");
+
+  // ── Keyboard shortcuts (the ones listed in Settings → Shortcuts) ──
+  // N new board · / search chats · G then B/C · , settings · T cycle theme
+  useEffect(() => {
+    let gPending = false, gTimer = null;
+    const typing = (el) => !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+    const onKey = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/system combos alone
+      if (typing(e.target)) return;                   // never hijack typing
+      const k = (e.key || "").toLowerCase();
+      if (gPending) {
+        gPending = false; if (gTimer) clearTimeout(gTimer);
+        if (k === "b") { e.preventDefault(); setTab("boards"); return; }
+        if (k === "c") { e.preventDefault(); setTab("chats"); return; }
+      }
+      if (k === "g") { gPending = true; gTimer = setTimeout(() => { gPending = false; }, 1200); return; }
+      if (k === "n") { e.preventDefault(); setTab("boards"); setTimeout(() => window.dispatchEvent(new CustomEvent("wp:new-board")), 60); return; }
+      if (k === "/") { e.preventDefault(); setTab("chats"); setTimeout(() => window.dispatchEvent(new CustomEvent("wp:focus-search")), 60); return; }
+      if (k === ",") { e.preventDefault(); setTab("settings"); return; }
+      if (k === "t") { e.preventDefault(); const i = THEME_KEYS.indexOf(themeKey); setTheme(THEME_KEYS[(i + 1) % THEME_KEYS.length]); return; }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); if (gTimer) clearTimeout(gTimer); };
+  }, [themeKey, setTheme]);
 
   // apply neon glow custom color via CSS vars
   const styleVars = themeKey === "neon"
