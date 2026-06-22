@@ -119,6 +119,9 @@ export const api = {
     http(`/boards/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(board) }),
   deleteBoard: (id: string) => http(`/boards/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
+  catChat: (messages: Array<{ role: string; text: string }>): Promise<{ reply: string }> =>
+    http("/cat/chat", { method: "POST", body: JSON.stringify({ messages }) }),
+
   getKv: (key: string): Promise<any> => http(`/state/${encodeURIComponent(key)}`),
   putKv: (key: string, doc: any) =>
     http(`/state/${encodeURIComponent(key)}`, { method: "PUT", body: JSON.stringify(doc) }),

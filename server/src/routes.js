@@ -2,6 +2,7 @@ import express from "express";
 import { requestOtp, confirmOtp, getVerification, isVerified } from "./verify.js";
 import { getUser, setUserEmail } from "./users.js";
 import { classifyMessage } from "./ai/classifier.js";
+import { catReply } from "./ai/cat.js";
 
 /**
  * Registers all /api routes.
@@ -109,6 +110,15 @@ export function registerRoutes(app, sessions) {
     const cls = await classifyMessage(record);
     await req.wa.applyClassification(record, cls);
     res.json({ classification: cls, stored: cls.category !== "chatter" });
+  }));
+
+  /* ── Pixel Cat chatbot (Groq-backed; empty reply → client uses local rules) ── */
+  api.post("/cat/chat", wrap(async (req, res) => {
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    let reply = "";
+    try { reply = (await catReply(messages)) || ""; }
+    catch (e) { console.warn("[cat] reply failed:", e.message); }
+    res.json({ reply });
   }));
 
   /* ── Derived items: meetings / tasks / announcements ─────────────── */

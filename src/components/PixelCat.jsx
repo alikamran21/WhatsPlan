@@ -14,6 +14,7 @@
  *          onReminderFire, onTaskComplete }
  * ==================================================================== */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
 
 /* ---------------------------------------------------------------- themes */
 const THEMES = {
@@ -54,13 +55,6 @@ const GREETINGS = [
 const CAT_GREETS = ["Mrrrow! Hi there! 💚", "Meow~ you're back!", "Purr… hello friend!", "Hi hi! 🐾", "Mrr! Missed you~"];
 const FALLBACKS = ["Mrrrow? Tell me more~", "Purr… I'm listening 🐾", "Meow! That's interesting 💚", "I'm just a little cat, but I'm here for you!"];
 
-const SYSTEM_PROMPT =
-  "You are Pixel Cat, a cute kawaii pixel art green cat with headphones who lives on the user's screen as their companion. " +
-  "Reply in 1-3 short sentences only. Be warm, playful, and supportive. Use cat sounds naturally (mrrrow, purr, meow). " +
-  "Use 💚 occasionally. You help track tasks and deadlines. When the user mentions ANY deadline, time, meeting, or task — " +
-  "acknowledge it warmly and offer to set a reminder. If they say yes or confirm, reply with exactly: SET_REMINDER:[text]|[HH:MM] " +
-  "so the app can parse it. Keep all replies under 40 words.";
-
 /* small helper: clamp */
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -87,33 +81,53 @@ function drawFrame(ctx, sheet, state, frame, opts) {
 /* REMINDER PARSING                                                         */
 /* ====================================================================== */
 function parseReminder(text) {
-  const lower = text.toLowerCase();
-  // remind me to X in N minutes/hours
-  let m = lower.match(/remind me to (.+?) in (\d+)\s*(min|minute|minutes|hr|hour|hours|h|m)\b/);
+  const lower = text.toLowerCase().trim();
+  // relative: "remind me [to X] in N min/hr"  OR  "remind me in N min [to X]"
+  let m = lower.match(/remind me(?: to (.+?))? in (\d+)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes)?\b(?:\s+to (.+))?/);
   if (m) {
     const n = parseInt(m[2], 10);
-    const unit = m[3];
-    const ms = (/h/.test(unit) ? n * 3600000 : n * 60000);
-    return { text: m[1].trim(), triggerTime: Date.now() + ms };
+    const unit = m[3] || "min";
+    const ms = /^h/.test(unit) ? n * 3600000 : n * 60000;
+    const task = (m[1] || m[4] || "your reminder").trim();
+    return { text: task, triggerTime: Date.now() + ms };
   }
-  // remind me at HH:MM to X   /  remind me to X at HH:MM
-  m = lower.match(/remind me (?:to (.+?) )?at (\d{1,2}):(\d{2})/) || lower.match(/remind me at (\d{1,2}):(\d{2}) to (.+)/);
+  // absolute: "remind me [to X] at HH[:MM] [am/pm]"  OR  "remind me at HH:MM [to X]"
+  m = lower.match(/remind me(?: to (.+?))? at (\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b(?:\s+to (.+))?/);
   if (m) {
-    let task, hh, mm;
-    if (m.length === 4 && m[1] !== undefined && isNaN(Number(m[1]))) { task = m[1]; hh = m[2]; mm = m[3]; }
-    else { hh = m[1]; mm = m[2]; task = m[3]; }
-    if (hh == null) return null;
-    const d = new Date(); d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
+    let hh = parseInt(m[2], 10);
+    const mm = m[3] ? parseInt(m[3], 10) : 0;
+    if (m[4] === "pm" && hh < 12) hh += 12;
+    if (m[4] === "am" && hh === 12) hh = 0;
+    const d = new Date(); d.setHours(hh, mm, 0, 0);
     if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
-    return { text: (task || "your reminder").trim(), triggerTime: d.getTime() };
+    const task = (m[1] || m[5] || "your reminder").trim();
+    return { text: task, triggerTime: d.getTime() };
   }
-  // I need to finish X by Y  /  my deadline for X is Y
+  // "I need to finish X by Y" / "my deadline for X is Y"
   m = lower.match(/(?:i need to finish|my deadline for) (.+?) (?:by|is) (.+)/);
   if (m) {
     const tm = m[2].match(/(\d{1,2}):(\d{2})/);
     let trigger = Date.now() + 3600000;
     if (tm) { const d = new Date(); d.setHours(parseInt(tm[1], 10), parseInt(tm[2], 10), 0, 0); if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1); trigger = d.getTime(); }
     return { text: m[1].trim(), triggerTime: trigger };
+  }
+  return null;
+}
+/* Parse the [when] half of an LLM SET_REMINDER directive: HH:MM, +30m, +2h, etc. */
+function parseWhen(when) {
+  const w = String(when || "").trim().toLowerCase();
+  let m = w.match(/^\+?\s*(\d+)\s*(m|min|mins|minute|minutes)$/);
+  if (m) return Date.now() + parseInt(m[1], 10) * 60000;
+  m = w.match(/^\+?\s*(\d+)\s*(h|hr|hrs|hour|hours)$/);
+  if (m) return Date.now() + parseInt(m[1], 10) * 3600000;
+  m = w.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+  if (m) {
+    let hh = parseInt(m[1], 10); const mm = parseInt(m[2], 10);
+    if (m[3] === "pm" && hh < 12) hh += 12;
+    if (m[3] === "am" && hh === 12) hh = 0;
+    const d = new Date(); d.setHours(hh, mm, 0, 0);
+    if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
+    return d.getTime();
   }
   return null;
 }
@@ -410,11 +424,16 @@ export default function PixelCat({
     trigger("alert", 7000);
     say(`⏰ REMINDER: ${r.text}`, 7000, true);
     setMessages((m) => [...m, { role: "assistant", text: `⏰ Reminder: ${r.text}`, ts: Date.now() }]);
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification("🐱 Pixel Cat reminder", { body: r.text });
+      }
+    } catch { /* notifications unavailable */ }
     if (onReminderFire) try { onReminderFire(r.text); } catch {}
   }, [trigger, say, onReminderFire]);
 
+  // Reminders fire even when the cat is hidden — they're the whole point.
   useEffect(() => {
-    if (hidden) return;
     const iv = setInterval(() => {
       const now = Date.now();
       let fired = false;
@@ -430,13 +449,16 @@ export default function PixelCat({
       setReminders((rs) => rs.map((r) => (!r.done && !r.fired && r.triggerTime <= now ? (fireReminder(r), { ...r, fired: true, done: true }) : r)));
     }, 5000);
     return () => { clearInterval(iv); clearInterval(fast); };
-  }, [hidden, fireReminder]);
+  }, [fireReminder]);
 
   const addReminder = useCallback((text, triggerTime) => {
     const r = { id: String(Date.now()) + Math.random().toString(36).slice(2, 6), text, triggerTime, done: false, fired: false, createdAt: Date.now() };
     setReminders((rs) => [...rs, r]);
     trigger("cheering", 2000);
     say(`Got it! I'll remind you at ${fmtTime(triggerTime)} ⏰`);
+    // Ask once for notification permission so the reminder can pop even if the
+    // tab is in the background when it fires.
+    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch {}
     return r;
   }, [trigger, say]);
 
@@ -470,75 +492,43 @@ export default function PixelCat({
     return FALLBACKS[Math.floor(Math.random() * FALLBACKS.length)];
   }, [addReminder, reminders, trigger, say, onTaskComplete]);
 
-  const callClaude = useCallback(async (history) => {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 200,
-        system: SYSTEM_PROMPT,
-        messages: history.slice(-10).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text })),
-      }),
-    });
-    if (!res.ok) throw new Error("api " + res.status);
-    const data = await res.json();
-    return (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-  }, [apiKey]);
-
-  const scanForHints = useCallback((history) => {
-    if (!isPremium) return;
-    const recent = history.slice(-10).filter((m) => m.role === "user").map((m) => m.text).join(" ").toLowerCase();
-    const m = recent.match(/(meeting|call|deadline|submit) (?:at |by )?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
-    if (m && !reminders.some((r) => !r.done)) {
-      const label = m[1];
-      setTimeout(() => say(`I noticed you mentioned a ${label} — want me to remind you? 🐾 (say "yes")`, 6000), 800);
-    }
-  }, [isPremium, reminders, say]);
-
   const send = useCallback(async () => {
     const text = input.trim(); if (!text) return;
     setInput("");
     const userMsg = { role: "user", text, ts: Date.now() };
+    const history = [...messages, userMsg];
     setMessages((m) => [...m, userMsg]);
     markActivity();
 
-    // "yes" right after a hint → set a default 1h reminder
-    if (/^(yes|yeah|yep|sure|ok|okay)\b/i.test(text) && isPremium) {
-      const last = [...messages].reverse().find((m) => m.role === "user");
-      const rem = parseReminder((last && last.text) || "") || { text: "your task", triggerTime: Date.now() + 3600000 };
+    // 1) Direct reminder phrasing → handle instantly (works offline too).
+    const rem = parseReminder(text);
+    if (rem) {
       addReminder(rem.text, rem.triggerTime);
+      setMessages((m) => [...m, { role: "assistant", text: `Got it! I'll remind you to "${rem.text}" at ${fmtTime(rem.triggerTime)} ⏰`, ts: Date.now() }]);
+      return;
     }
 
-    if (aiEnabled && isPremium && apiKey) {
-      setTyping(true);
-      try {
-        const reply = await callClaude([...messages, userMsg]);
-        let shown = reply;
-        const setM = reply.match(/SET_REMINDER:\[([^\]]+)\]\|\[?(\d{1,2}:\d{2})\]?/);
+    // 2) Real reply from the backend (Groq). Falls back to the local rule-based
+    //    replies if the server has no AI key or is unreachable.
+    setTyping(true);
+    try {
+      const data = await api.catChat(history.map((m) => ({ role: m.role, text: m.text })));
+      let reply = data && data.reply ? String(data.reply).trim() : "";
+      if (reply) {
+        const setM = reply.match(/SET_REMINDER:\s*\[([^\]]+)\]\s*\|\s*\[?([^\]\n]+?)\]?/i);
         if (setM) {
-          const [hh, mm] = setM[2].split(":");
-          const d = new Date(); d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0); if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
-          addReminder(setM[1].trim(), d.getTime());
-          shown = reply.replace(/SET_REMINDER:.*/g, "").trim() || `Got it! I'll remind you at ${setM[2]} ⏰`;
+          const when = parseWhen(setM[2]);
+          if (when) addReminder(setM[1].trim(), when);
+          reply = reply.replace(/SET_REMINDER:.*$/im, "").trim() || (when ? `Got it! I'll remind you at ${fmtTime(when)} ⏰` : "mrr~ 💚");
         }
-        setMessages((m) => [...m, { role: "assistant", text: shown || "mrr~ 💚", ts: Date.now() }]);
-        scanForHints([...messages, userMsg]);
-      } catch {
+        setMessages((m) => [...m, { role: "assistant", text: reply, ts: Date.now() }]);
+      } else {
         setMessages((m) => [...m, { role: "assistant", text: freeReply(text), ts: Date.now() }]);
-      } finally { setTyping(false); }
-    } else {
-      // free / non-premium
-      const complex = text.split(" ").length > 8 && !parseReminder(text) && !/^(hi|hello|hey)/.test(text.toLowerCase());
-      const reply = (complex && !isPremium) ? "Purr~ upgrade to Premium for AI! 🐾" : freeReply(text);
-      setTimeout(() => setMessages((m) => [...m, { role: "assistant", text: reply, ts: Date.now() }]), 250);
-    }
-  }, [input, messages, aiEnabled, isPremium, apiKey, callClaude, freeReply, addReminder, scanForHints, markActivity]);
+      }
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", text: freeReply(text), ts: Date.now() }]);
+    } finally { setTyping(false); }
+  }, [input, messages, freeReply, addReminder, markActivity]);
 
   /* ================= external trigger + global shortcut ================= */
   useEffect(() => {
