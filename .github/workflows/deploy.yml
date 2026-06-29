@@ -30,6 +30,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           envs: GH_TOKEN
+          # A cold rebuild (api reinstalls Chromium) can take ~10 min; the default
+          # command_timeout is 10m. Give it headroom — warm builds stay quick.
+          command_timeout: 25m
           script: |
             set -e
             APP_DIR="$HOME/WhatsPlan"
