@@ -2990,6 +2990,11 @@ export default function WhatsPlanApp() {
     if (wa.status === "ready") {
       if (!wasLinked) { setWasLinked(true); LS.set("wp_linked", true); }
       if (wa.me) { LS.set("wp_me", wa.me); if (wa.meName) LS.set("wp_me_name", wa.meName); }
+    } else if (wa.status === "qr" && wasLinked) {
+      // A QR means the device is genuinely unlinked. Drop the sticky flag so the
+      // login/QR screen stays put instead of flickering back to the app as the
+      // status cycles through transient values during a re-scan.
+      setWasLinked(false); LS.set("wp_linked", false);
     }
   }, [wa.status, wa.me, wa.meName, wasLinked]);
 

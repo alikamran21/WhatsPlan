@@ -243,8 +243,10 @@ export class WhatsAppService extends EventEmitter {
       prev = saved;
       if (stable || Date.now() - startedAt > MAX_MS) this._stopChatSyncLoop();
     };
+    // First sweep fires at the first interval (~8s), not instantly — calling
+    // getChats the moment WhatsApp goes "ready" can destabilise the freshly
+    // linked session (and bounce it back to a QR). Let it settle first.
     this._syncLoop = setInterval(tick, 8000);
-    tick(); // first attempt right away
   }
 
   _stopChatSyncLoop() {
